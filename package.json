@@ -1,0 +1,24 @@
+{
+  "name": "node-mysql-cron",
+  "version": "0.0.1",
+  "description": "A mysql based periodic cron",
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "eslint src",
+    "pretty": "prettier \"src/**/*.js\" \"example/*.js\" --write"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jim-lake/node-mysql-cron.git"
+  },
+  "author": {
+    "name": "Jim Lake"
+  },
+  "license": "MIT",
+  "files": [
+    "src/**/*"
+  ],
+  "dependencies": {
+    "async": "^3.2.0"
+  }
+}
