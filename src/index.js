@@ -25,7 +25,6 @@ function config(args) {
   if (args.errorLog) {
     errorLog = args.errorLog;
   }
-  _pollLater();
 }
 function isStopped() {
   return g_isStopped;
@@ -47,7 +46,7 @@ function stop() {
 
 function _pollLater() {
   if (!g_isStopped) {
-    g_timeout = setTimeout(_poll.bind(null, _pollLater), g_config.poolInterval);
+    g_timeout = setTimeout(_poll.bind(null, _pollLater), g_config.pollInterval);
   }
 }
 function _poll(done) {
@@ -109,6 +108,8 @@ WHERE
   status != 'RUNNING'
   AND (
     last_start_time IS NULL
+    OR last_interval_time IS NULL
+    OR last_result_time IS NULL
     OR (
       status = 'WAITING'
       AND last_interval_time + INTERVAL frequency_secs SECOND < NOW()
@@ -120,7 +121,7 @@ WHERE
   )
 ORDER BY last_start_time ASC
 `;
-  g_config.pool.query(sql, [g_config.parallelLimit], (err, results) => {
+  g_config.pool.query(sql, [], (err, results) => {
     let job_list;
     if (err) {
       errorLog('NMC._findJob: sql err:', err);

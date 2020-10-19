@@ -90,7 +90,7 @@ function _runJobs() {
     pool,
     jobTable,
     pollInterval: 1 * 1000,
-    //workerId: os.hostname() + ';' + process.pid,
+    workerId: os.hostname() + ';' + process.pid,
     parallelLimit: 2,
     errorLog: _error,
   };
