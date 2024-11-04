@@ -6,12 +6,24 @@ var __importDefault =
   };
 Object.defineProperty(exports, '__esModule', { value: true });
 exports.config = config;
-exports.setWorker = setWorker;
 exports.isStopped = isStopped;
+exports.getLastPollStart = getLastPollStart;
+exports.getJobHistoryList = getJobHistoryList;
+exports.setWorker = setWorker;
 exports.start = start;
 exports.stop = stop;
 const async_1 = __importDefault(require('async'));
 const node_os_1 = __importDefault(require('node:os'));
+exports.default = {
+  config,
+  isStopped,
+  setWorker,
+  start,
+  stop,
+  getLastPollStart,
+  getJobHistoryList,
+};
+const MAX_JOB_HISTORY = 100;
 const g_config = {
   pool: null,
   jobTable: 'nmc_job',
@@ -23,6 +35,8 @@ const g_workerMap = new Map();
 let errorLog = _defaultErrorLog;
 let g_isStopped = true;
 let g_timeout = null;
+let g_lastPollStart = 0;
+const g_jobHistoryList = [];
 function config(args) {
   Object.assign(g_config, args);
   if (args.errorLog) {
@@ -31,6 +45,12 @@ function config(args) {
 }
 function isStopped() {
   return g_isStopped;
+}
+function getLastPollStart() {
+  return g_lastPollStart;
+}
+function getJobHistoryList() {
+  return g_jobHistoryList;
 }
 function setWorker(job_name, worker_function) {
   g_workerMap.set(job_name, worker_function);
@@ -52,6 +72,7 @@ function _pollLater() {
   }
 }
 function _poll(done) {
+  g_lastPollStart = Date.now();
   let job_list = [];
   async_1.default.series(
     [
@@ -138,6 +159,12 @@ ORDER BY last_start_time ASC
 }
 function _runJob(job, done) {
   const { job_name } = job;
+  const job_history = {
+    job_name,
+    start_time: Date.now(),
+  };
+  g_jobHistoryList.unshift(job_history);
+  g_jobHistoryList.splice(MAX_JOB_HISTORY);
   let next_status;
   let last_result;
   async_1.default.series(
@@ -165,11 +192,17 @@ function _runJob(job, done) {
         }
       },
       (done) => {
+        job_history.result_status = next_status;
+        job_history.result = last_result;
         const opts = { job, next_status, last_result };
         _endJob(opts, done);
       },
     ],
-    done
+    (err) => {
+      job_history.end_time = Date.now();
+      job_history.err = err;
+      done(err);
+    }
   );
 }
 function _startJob(job, done) {
@@ -239,7 +272,7 @@ function _getDefaultWorkerId() {
   return ret;
 }
 function _isLocalAddress(address) {
-  return address.startsWith('fe80') || address.startsWith('169.254');
+  return address?.startsWith?.('fe80') || address?.startsWith?.('169.254');
 }
 function _defaultErrorLog(...args) {
   console.error(...args);

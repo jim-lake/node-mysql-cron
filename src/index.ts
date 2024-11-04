@@ -1,7 +1,17 @@
 import async from 'async';
 import os from 'node:os';
 
-export { config, setWorker, isStopped, start, stop };
+export default {
+  config,
+  isStopped,
+  setWorker,
+  start,
+  stop,
+  getLastPollStart,
+  getJobHistoryList,
+};
+
+const MAX_JOB_HISTORY = 100;
 
 interface Config {
   pool: any | null;
@@ -17,6 +27,14 @@ interface Job {
   frequency_secs: number;
   status: string;
 }
+type JobHistory = {
+  job_name: string;
+  start_time: number;
+  end_time?: number;
+  err?: any;
+  result_status?: any;
+  result?: any;
+};
 type WorkerFunction = (
   job: Job,
   done: (err?: any, result?: any) => void
@@ -34,24 +52,35 @@ const g_workerMap: Map<string, WorkerFunction> = new Map();
 let errorLog: (...args: any[]) => void = _defaultErrorLog;
 let g_isStopped = true;
 let g_timeout: NodeJS.Timeout | null = null;
+let g_lastPollStart: number = 0;
+const g_jobHistoryList: JobHistory[] = [];
 
-function config(args: Partial<Config>): void {
+export function config(args: Partial<Config>): void {
   Object.assign(g_config, args);
   if (args.errorLog) {
     errorLog = args.errorLog;
   }
 }
-function isStopped(): boolean {
+export function isStopped(): boolean {
   return g_isStopped;
 }
-function setWorker(job_name: string, worker_function: WorkerFunction): void {
+export function getLastPollStart() {
+  return g_lastPollStart;
+}
+export function getJobHistoryList() {
+  return g_jobHistoryList;
+}
+export function setWorker(
+  job_name: string,
+  worker_function: WorkerFunction
+): void {
   g_workerMap.set(job_name, worker_function);
 }
-function start(): void {
+export function start(): void {
   g_isStopped = false;
   _pollLater();
 }
-function stop(): void {
+export function stop(): void {
   g_isStopped = true;
   if (g_timeout) {
     clearTimeout(g_timeout);
@@ -64,6 +93,7 @@ function _pollLater(): void {
   }
 }
 function _poll(done: (err?: any) => void): void {
+  g_lastPollStart = Date.now();
   let job_list: Job[] = [];
   async.series(
     [
@@ -150,6 +180,12 @@ ORDER BY last_start_time ASC
 }
 function _runJob(job: Job, done: (err?: any) => void): void {
   const { job_name } = job;
+  const job_history: JobHistory = {
+    job_name,
+    start_time: Date.now(),
+  };
+  g_jobHistoryList.unshift(job_history);
+  g_jobHistoryList.splice(MAX_JOB_HISTORY);
 
   let next_status: string;
   let last_result: string;
@@ -178,11 +214,17 @@ function _runJob(job: Job, done: (err?: any) => void): void {
         }
       },
       (done) => {
+        job_history.result_status = next_status;
+        job_history.result = last_result;
         const opts = { job, next_status, last_result };
         _endJob(opts, done);
       },
     ],
-    done
+    (err) => {
+      job_history.end_time = Date.now();
+      job_history.err = err;
+      done(err);
+    }
   );
 }
 function _startJob(job: Job, done: (err?: any) => void): void {
@@ -258,7 +300,7 @@ function _getDefaultWorkerId(): string {
   return ret;
 }
 function _isLocalAddress(address: string): boolean {
-  return address.startsWith('fe80') || address.startsWith('169.254');
+  return address?.startsWith?.('fe80') || address?.startsWith?.('169.254');
 }
 function _defaultErrorLog(...args: any[]): void {
   console.error(...args);

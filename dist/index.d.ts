@@ -1,4 +1,13 @@
-export { config, setWorker, isStopped, start, stop };
+declare const _default: {
+  config: typeof config;
+  isStopped: typeof isStopped;
+  setWorker: typeof setWorker;
+  start: typeof start;
+  stop: typeof stop;
+  getLastPollStart: typeof getLastPollStart;
+  getJobHistoryList: typeof getJobHistoryList;
+};
+export default _default;
 interface Config {
   pool: any | null;
   jobTable: string;
@@ -13,15 +22,25 @@ interface Job {
   frequency_secs: number;
   status: string;
 }
+type JobHistory = {
+  job_name: string;
+  start_time: number;
+  end_time?: number;
+  err?: any;
+  result_status?: any;
+  result?: any;
+};
 type WorkerFunction = (
   job: Job,
   done: (err?: any, result?: any) => void
 ) => void;
-declare function config(args: Partial<Config>): void;
-declare function isStopped(): boolean;
-declare function setWorker(
+export declare function config(args: Partial<Config>): void;
+export declare function isStopped(): boolean;
+export declare function getLastPollStart(): number;
+export declare function getJobHistoryList(): JobHistory[];
+export declare function setWorker(
   job_name: string,
   worker_function: WorkerFunction
 ): void;
-declare function start(): void;
-declare function stop(): void;
+export declare function start(): void;
+export declare function stop(): void;
