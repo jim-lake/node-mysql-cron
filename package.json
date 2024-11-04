@@ -1,11 +1,11 @@
 {
   "name": "node-mysql-cron",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A mysql based periodic cron",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
     "lint": "eslint src",
-    "pretty": "prettier \"src/**/*.js\" \"example/*.js\" --write"
+    "pretty": "prettier \"**/*.ts\" \"**/*.js\" \"**/*.json\" --write"
   },
   "repository": {
     "type": "git",
@@ -16,9 +16,18 @@
   },
   "license": "MIT",
   "files": [
-    "src/**/*"
+    "dist/**/*"
   ],
   "dependencies": {
     "async": "^3.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/eslint__js": "^8.42.3",
+    "@types/node": "^22.7.7",
+    "@typescript-eslint/parser": "^8.10.0",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.10.0"
   }
 }

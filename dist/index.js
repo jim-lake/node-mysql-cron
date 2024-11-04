@@ -1,13 +1,18 @@
-const async = require('async');
-const os = require('os');
-
+'use strict';
+var __importDefault =
+  (this && this.__importDefault) ||
+  function (mod) {
+    return mod && mod.__esModule ? mod : { default: mod };
+  };
+Object.defineProperty(exports, '__esModule', { value: true });
 exports.config = config;
 exports.setWorker = setWorker;
 exports.isStopped = isStopped;
 exports.start = start;
 exports.stop = stop;
-
-let g_config = {
+const async_1 = __importDefault(require('async'));
+const node_os_1 = __importDefault(require('node:os'));
+const g_config = {
   pool: null,
   jobTable: 'nmc_job',
   pollInterval: 60 * 1000,
@@ -15,11 +20,9 @@ let g_config = {
   parallelLimit: 2,
 };
 const g_workerMap = new Map();
-
 let errorLog = _defaultErrorLog;
 let g_isStopped = true;
 let g_timeout = null;
-
 function config(args) {
   Object.assign(g_config, args);
   if (args.errorLog) {
@@ -43,15 +46,14 @@ function stop() {
     g_timeout = null;
   }
 }
-
 function _pollLater() {
   if (!g_isStopped) {
     g_timeout = setTimeout(_poll.bind(null, _pollLater), g_config.pollInterval);
   }
 }
 function _poll(done) {
-  let job_list;
-  async.series(
+  let job_list = [];
+  async_1.default.series(
     [
       _unstallJobs,
       (done) => {
@@ -62,7 +64,7 @@ function _poll(done) {
       },
       (done) => {
         if (job_list.length > 0) {
-          async.each(
+          async_1.default.each(
             job_list,
             (job, done) => {
               _runJob(job, () => done());
@@ -106,6 +108,7 @@ SELECT *
 FROM ${g_config.jobTable}
 WHERE
   status != 'RUNNING'
+  AND is_disabled = 0
   AND (
     last_start_time IS NULL
     OR last_interval_time IS NULL
@@ -122,14 +125,12 @@ WHERE
 ORDER BY last_start_time ASC
 `;
   g_config.pool.query(sql, [], (err, results) => {
-    let job_list;
+    let job_list = [];
     if (err) {
       errorLog('NMC._findJob: sql err:', err);
     } else {
       job_list = results
-        .filter((job) => {
-          return g_workerMap.get(job.job_name);
-        })
+        .filter((job) => g_workerMap.has(job.job_name))
         .slice(0, g_config.parallelLimit);
     }
     done(err, job_list);
@@ -137,10 +138,9 @@ ORDER BY last_start_time ASC
 }
 function _runJob(job, done) {
   const { job_name } = job;
-
   let next_status;
   let last_result;
-  async.series(
+  async_1.default.series(
     [
       (done) => _startJob(job, done),
       (done) => {
@@ -197,12 +197,10 @@ WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
 function _endJob(params, done) {
   const { job, next_status, last_result } = params;
   const { job_name, frequency_secs } = job;
-
   const updates = {
     status: next_status,
     last_result,
   };
-
   let success_sql = '';
   if (next_status === 'WAITING') {
     success_sql = ', last_success_time = NOW()';
@@ -211,7 +209,6 @@ function _endJob(params, done) {
     const interval_ms = Math.floor(now / freq_ms) * freq_ms;
     updates.last_interval_time = new Date(interval_ms);
   }
-
   const sql = `
 UPDATE ${g_config.jobTable}
 SET ?, last_result_time = NOW() ${success_sql}
@@ -225,12 +222,11 @@ WHERE job_name = ?
     done(err);
   });
 }
-
 function _getDefaultWorkerId() {
-  const host = os.hostname();
+  const host = node_os_1.default.hostname();
   const addresses = [];
-  Object.values(os.networkInterfaces()).forEach((list) =>
-    list.forEach((addr) => addresses.push(addr))
+  Object.values(node_os_1.default.networkInterfaces()).forEach((list) =>
+    list?.forEach?.((addr) => addresses.push(addr))
   );
   const first_addr = addresses.find(
     (addr) => !addr.internal && !_isLocalAddress(addr.address)
@@ -243,9 +239,7 @@ function _getDefaultWorkerId() {
   return ret;
 }
 function _isLocalAddress(address) {
-  return (
-    address && (address.startsWith('fe80') || address.startsWith('169.254'))
-  );
+  return address.startsWith('fe80') || address.startsWith('169.254');
 }
 function _defaultErrorLog(...args) {
   console.error(...args);
@@ -265,8 +259,9 @@ function _jsonStringify(obj) {
   let ret = '';
   try {
     ret = JSON.stringify(obj);
-  } catch (e) {
+  } catch {
     ret = String(obj);
   }
   return ret;
 }
+//# sourceMappingURL=index.js.map

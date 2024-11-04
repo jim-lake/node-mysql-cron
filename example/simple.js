@@ -1,9 +1,10 @@
 const async = require('async');
 const mysql = require('mysql');
-const os = require('os');
-const { basename } = require('path');
+const os = require('node:os');
+const fs = require('node:fs');
+const { basename, join } = require('node:path');
 
-const Cron = require('../src');
+const Cron = require('../dist');
 const argv = process.argv.slice(2);
 
 function usage() {
@@ -47,9 +48,26 @@ const EXAMPLE_JOBS = [
     retry_secs: 2,
     max_run_secs: 60,
   },
+  {
+    job_name: 'example_disabled',
+    is_disabled: 1,
+    frequency_secs: 10,
+    retry_secs: 2,
+    max_run_secs: 60,
+  },
 ];
-
-if (cmd === 'create') {
+if (cmd === 'schema') {
+  const sql = fs.readFileSync(join(__dirname, '../schema.sql'), 'utf8');
+  pool.query(sql, [], (err, result) => {
+    if (err) {
+      _error('create: schema create err:', err);
+      process.exit(-1);
+    } else {
+      _log('create: schema created');
+      process.exit(0);
+    }
+  });
+} else if (cmd === 'create') {
   async.eachSeries(
     EXAMPLE_JOBS,
     (job, done) => {
@@ -90,7 +108,6 @@ function _runJobs() {
     pool,
     jobTable,
     pollInterval: 1 * 1000,
-    workerId: os.hostname() + ';' + process.pid,
     parallelLimit: 2,
     errorLog: _error,
   };
