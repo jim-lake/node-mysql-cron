@@ -4,6 +4,7 @@
   "description": "A mysql based periodic cron",
   "main": "dist/index.js",
   "scripts": {
+    "build": "tsc && npm run pretty",
     "lint": "eslint src",
     "pretty": "prettier \"**/*.ts\" \"**/*.js\" \"**/*.json\" --write"
   },
