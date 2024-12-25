@@ -20,6 +20,9 @@ interface Job {
   job_name: string;
   run_count: number;
   frequency_secs: number;
+  interval_offset_secs: number;
+  last_success_time: Date;
+  last_result: string;
   status: string;
 }
 type JobHistory = {

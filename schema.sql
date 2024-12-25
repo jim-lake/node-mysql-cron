@@ -6,6 +6,7 @@ CREATE TABLE `nmc_job` (
   `frequency_secs` int NOT NULL,
   `retry_secs` int NOT NULL DEFAULT '10',
   `max_run_secs` int NOT NULL DEFAULT '600',
+  `interval_offset_secs` int NOT NULL DEFAULT '0',
   `status` enum('WAITING','RUNNING','ERROR') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'WAITING',
   `run_count` int NOT NULL DEFAULT '0',
   `last_interval_time` timestamp NULL DEFAULT NULL,

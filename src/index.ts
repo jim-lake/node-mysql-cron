@@ -25,6 +25,9 @@ interface Job {
   job_name: string;
   run_count: number;
   frequency_secs: number;
+  interval_offset_secs: number;
+  last_success_time: Date;
+  last_result: string;
   status: string;
 }
 type JobHistory = {
@@ -254,7 +257,7 @@ function _endJob(
   done: (err?: any) => void
 ): void {
   const { job, next_status, last_result } = params;
-  const { job_name, frequency_secs } = job;
+  const { job_name, frequency_secs, interval_offset_secs } = job;
 
   const updates: any = {
     status: next_status,
@@ -266,7 +269,8 @@ function _endJob(
     success_sql = ', last_success_time = NOW()';
     const now = Date.now();
     const freq_ms = frequency_secs * 1000;
-    const interval_ms = Math.floor(now / freq_ms) * freq_ms;
+    const offset = interval_offset_secs * 1000;
+    const interval_ms = Math.floor(now / freq_ms) * freq_ms + offset;
     updates.last_interval_time = new Date(interval_ms);
   }
 

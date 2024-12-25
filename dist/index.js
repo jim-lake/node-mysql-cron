@@ -229,7 +229,7 @@ WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
 }
 function _endJob(params, done) {
   const { job, next_status, last_result } = params;
-  const { job_name, frequency_secs } = job;
+  const { job_name, frequency_secs, interval_offset_secs } = job;
   const updates = {
     status: next_status,
     last_result,
@@ -239,7 +239,8 @@ function _endJob(params, done) {
     success_sql = ', last_success_time = NOW()';
     const now = Date.now();
     const freq_ms = frequency_secs * 1000;
-    const interval_ms = Math.floor(now / freq_ms) * freq_ms;
+    const offset = interval_offset_secs * 1000;
+    const interval_ms = Math.floor(now / freq_ms) * freq_ms + offset;
     updates.last_interval_time = new Date(interval_ms);
   }
   const sql = `
