@@ -1,12 +1,12 @@
 {
   "name": "node-mysql-cron",
-  "version": "0.0.6",
+  "version": "1.0.0",
   "description": "A mysql based periodic cron",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "lint": "eslint src",
-    "pretty": "prettier \"**/*.ts\" \"**/*.js\" \"**/*.json\" --write",
+    "pretty": "prettier -u --write \"**/*\" --log-level warn",
     "test": "npm run build && npm run test:setup && npm run test:run",
     "test:setup": "npm run test:db:create && npm run test:db:migrate",
     "test:db:create": "mysql -u root -e 'CREATE DATABASE IF NOT EXISTS nmc_test;'",
@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
-    "@types/eslint__js": "^8.42.3",
     "@types/node": "^22.7.7",
     "@typescript-eslint/parser": "^8.10.0",
     "eslint": "^9.13.0",

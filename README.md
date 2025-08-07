@@ -52,27 +52,27 @@ Worker functions are now async and should return a JSON-serializable value:
 // Simple async worker
 async function fetchDataWorker(job) {
   console.log(`Processing job: ${job.job_name}`);
-  
+
   // Simulate async work (API calls, database operations, etc.)
   const response = await fetch('https://api.example.com/data');
   const data = await response.json();
-  
+
   // Return result (will be JSON serialized automatically)
   return {
     success: true,
     recordsProcessed: data.length,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 }
 
 // Worker that might throw errors
 async function riskyWorker(job) {
   await someAsyncOperation();
-  
+
   if (someCondition) {
     throw new Error('Something went wrong'); // Will be caught and serialized
   }
-  
+
   return { status: 'completed' };
 }
 
@@ -116,9 +116,9 @@ Insert jobs into the database:
 const job = {
   job_name: 'daily_report',
   frequency_secs: 86400, // Run daily
-  retry_secs: 300,        // Retry after 5 minutes on error
-  max_run_secs: 1800,     // Max 30 minutes runtime
-  is_disabled: 0
+  retry_secs: 300, // Retry after 5 minutes on error
+  max_run_secs: 1800, // Max 30 minutes runtime
+  is_disabled: 0,
 };
 
 pool.query('INSERT INTO nmc_job SET ?', [job], (err, result) => {
@@ -167,6 +167,7 @@ npm run demo:run    # Run the demo
 If you're upgrading from a previous version with callback-based workers:
 
 **Old (callback-based):**
+
 ```javascript
 function oldWorker(job, done) {
   setTimeout(() => {
@@ -176,9 +177,10 @@ function oldWorker(job, done) {
 ```
 
 **New (async/await):**
+
 ```javascript
 async function newWorker(job) {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   return { success: true };
 }
 ```

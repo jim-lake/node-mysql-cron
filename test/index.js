@@ -578,11 +578,11 @@ describe('node-mysql-cron', () => {
 
   test('Database Error Handling', async () => {
     await clearJobs();
-    
+
     // Test with invalid database configuration to trigger SQL errors
     const badPool = mysql.createPool({
       ...DB_CONFIG,
-      database: 'nonexistent_database'
+      database: 'nonexistent_database',
     });
 
     Cron.config({
@@ -599,7 +599,7 @@ describe('node-mysql-cron', () => {
     try {
       // Let it run for a bit to trigger database errors
       await sleep(2000);
-      
+
       // The system should handle database errors gracefully
       assert.ok(true, 'System should handle database errors without crashing');
     } finally {
@@ -610,7 +610,7 @@ describe('node-mysql-cron', () => {
 
   test('Job Conflict Handling', async () => {
     await clearJobs();
-    
+
     // Insert a job and manually set it to a state that would cause conflicts
     await insertJob({
       job_name: 'test_conflict',
@@ -647,7 +647,7 @@ describe('node-mysql-cron', () => {
 
   test('Error Serialization Edge Cases', async () => {
     await clearJobs();
-    
+
     await insertJob({
       job_name: 'test_error_types',
       frequency_secs: 1,
@@ -659,7 +659,7 @@ describe('node-mysql-cron', () => {
     const errorTypesWorker = async (job) => {
       testCase++;
       log(`Error types worker execution #${testCase} for job: ${job.job_name}`);
-      
+
       switch (testCase) {
         case 1:
           // Error with stack trace
@@ -698,9 +698,12 @@ describe('node-mysql-cron', () => {
     try {
       // Let it run through several error types
       await sleep(8000);
-      
+
       const job = await getJob('test_error_types');
-      assert.ok(job.run_count >= 6, 'Job should have been executed multiple times to test different error types');
+      assert.ok(
+        job.run_count >= 6,
+        'Job should have been executed multiple times to test different error types'
+      );
     } finally {
       Cron.stop();
     }
@@ -708,7 +711,7 @@ describe('node-mysql-cron', () => {
 
   test('JSON Serialization Edge Cases', async () => {
     await clearJobs();
-    
+
     await insertJob({
       job_name: 'test_json_edge_cases',
       frequency_secs: 1,
@@ -719,8 +722,10 @@ describe('node-mysql-cron', () => {
     let testCase = 0;
     const jsonEdgeCasesWorker = async (job) => {
       testCase++;
-      log(`JSON edge cases worker execution #${testCase} for job: ${job.job_name}`);
-      
+      log(
+        `JSON edge cases worker execution #${testCase} for job: ${job.job_name}`
+      );
+
       switch (testCase) {
         case 1:
           // Circular reference (should trigger JSON.stringify error)
@@ -759,15 +764,20 @@ describe('node-mysql-cron', () => {
     try {
       // Let it run through several JSON edge cases
       await sleep(5000);
-      
+
       const job = await getJob('test_json_edge_cases');
-      assert.ok(job.run_count >= 3, `Job should have been executed multiple times to test JSON edge cases, got: ${job.run_count}`);
-      
+      assert.ok(
+        job.run_count >= 3,
+        `Job should have been executed multiple times to test JSON edge cases, got: ${job.run_count}`
+      );
+
       // The system should handle JSON serialization errors gracefully
-      assert.ok(job.last_result, 'Job should have a result even with JSON serialization issues');
+      assert.ok(
+        job.last_result,
+        'Job should have a result even with JSON serialization issues'
+      );
     } finally {
       Cron.stop();
     }
   });
-
 });
