@@ -11,7 +11,7 @@
     "test:setup": "npm run test:db:create && npm run test:db:migrate",
     "test:db:create": "mysql -u root -e 'CREATE DATABASE IF NOT EXISTS nmc_test;'",
     "test:db:migrate": "mysql -u root -e 'DROP TABLE IF EXISTS nmc_test.nmc_job;' && mysql -u root nmc_test < schema.sql",
-    "test:run": "node --test test/index.js",
+    "test:run": "node --test --experimental-test-coverage test/index.js",
     "demo:setup": "npm run test:setup && node test/setup-demo.js",
     "demo:run": "node test/demo.js"
   },
