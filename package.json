@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "ts-check": "tsc --noEmit",
     "lint": "eslint src",
     "pretty": "prettier -u --write \"**/*\" --log-level warn",
     "test": "npm run build && npm run test:setup && npm run test:run",
