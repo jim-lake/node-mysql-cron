@@ -157,7 +157,7 @@ ORDER BY last_start_time ASC
     done(err, job_list);
   });
 }
-function _runJob(job, done) {
+async function _runJob(job, done) {
   const { job_name } = job;
   const job_history = {
     job_name,
@@ -171,25 +171,19 @@ function _runJob(job, done) {
     [
       (done) => _startJob(job, done),
       (done) => {
-        try {
-          const worker_function = g_workerMap.get(job_name);
-          worker_function(job, (err, result) => {
-            if (err) {
-              errorLog('NMC._runJob:', job_name, 'work error:', err, result);
-              last_result = _errorStringify(err);
-              next_status = 'ERROR';
-            } else {
-              last_result = _jsonStringify(result);
-              next_status = 'WAITING';
-            }
+        const worker_function = g_workerMap.get(job_name);
+        worker_function(job)
+          .then((result) => {
+            last_result = _jsonStringify(result);
+            next_status = 'WAITING';
+            done();
+          })
+          .catch((err) => {
+            errorLog('NMC._runJob:', job_name, 'work error:', err);
+            last_result = _errorStringify(err);
+            next_status = 'ERROR';
             done();
           });
-        } catch (e) {
-          errorLog('NMC._runJob:', job_name, 'work threw:', e);
-          last_result = _errorStringify(e);
-          next_status = 'ERROR';
-          done();
-        }
       },
       (done) => {
         job_history.result_status = next_status;

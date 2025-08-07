@@ -6,7 +6,14 @@
   "scripts": {
     "build": "tsc && npm run pretty",
     "lint": "eslint src",
-    "pretty": "prettier \"**/*.ts\" \"**/*.js\" \"**/*.json\" --write"
+    "pretty": "prettier \"**/*.ts\" \"**/*.js\" \"**/*.json\" --write",
+    "test": "npm run build && npm run test:setup && npm run test:run",
+    "test:setup": "npm run test:db:create && npm run test:db:migrate",
+    "test:db:create": "mysql -u root -e 'CREATE DATABASE IF NOT EXISTS nmc_test;'",
+    "test:db:migrate": "mysql -u root -e 'DROP TABLE IF EXISTS nmc_test.nmc_job;' && mysql -u root nmc_test < schema.sql",
+    "test:run": "node --test test/index.js",
+    "demo:setup": "npm run test:setup && node test/setup-demo.js",
+    "demo:run": "node test/demo.js"
   },
   "repository": {
     "type": "git",
@@ -28,6 +35,7 @@
     "@types/node": "^22.7.7",
     "@typescript-eslint/parser": "^8.10.0",
     "eslint": "^9.13.0",
+    "mysql": "^2.18.1",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.10.0"
   }

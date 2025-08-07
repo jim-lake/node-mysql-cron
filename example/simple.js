@@ -119,22 +119,32 @@ function _runJobs() {
   Cron.start();
 }
 
-function _work(job, done) {
+async function _work(job) {
   const { job_name } = job;
   _log('_work: start:', job_name);
-  setTimeout(() => {
-    _log('_work: done:', job_name);
-    done(null, { success: 1 });
-  }, 1000);
+
+  // Simulate async work with a promise
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  _log('_work: done:', job_name);
+  return { success: 1 };
 }
-function _workError(job, done) {
+
+async function _workError(job) {
   const { job_name } = job;
   _log('_workError: start:', job_name);
-  setTimeout(() => {
-    const err = Math.random() > 0.5 ? new Error('fake_error') : null;
-    _log('_workError: done:', job_name, err);
-    done(err, { whooo: 1 });
-  }, 1000);
+
+  // Simulate async work with a promise
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  const shouldError = Math.random() > 0.5;
+  _log('_workError: done:', job_name, shouldError ? 'with error' : 'success');
+
+  if (shouldError) {
+    throw new Error('fake_error');
+  }
+
+  return { whooo: 1 };
 }
 function _log(...args) {
   console.log('[' + new Date().toUTCString() + ']', ...args);

@@ -33,10 +33,16 @@ type JobHistory = {
   result_status?: any;
   result?: any;
 };
-type WorkerFunction = (
-  job: Job,
-  done: (err?: any, result?: any) => void
-) => void;
+type JSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JSONValue[]
+  | {
+      [key: string]: JSONValue;
+    };
+type WorkerFunction = (job: Job) => Promise<JSONValue>;
 export declare function config(args: Partial<Config>): void;
 export declare function isStopped(): boolean;
 export declare function getLastPollStart(): number;
