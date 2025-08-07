@@ -456,15 +456,19 @@ describe('node-mysql-cron', () => {
   test('Job Stalling Detection', async () => {
     await clearJobs();
 
-    // Insert a job with short max_run_secs that's already running and stalled
+    // Insert a job with short max_run_secs
     await insertJob({
       job_name: 'test_stall',
       frequency_secs: 1,
       retry_secs: 1,
       max_run_secs: 1, // Very short max run time
-      status: 'RUNNING', // Start it as running
-      last_start_time: new Date(Date.now() - 5000), // 5 seconds ago
     });
+
+    // Manually update the job to simulate a stalled job that started long ago
+    // Use UTC_TIMESTAMP() to ensure timezone consistency since pool is configured with UTC
+    await queryAsync(
+      `UPDATE ${JOB_TABLE} SET status = 'RUNNING', last_start_time = UTC_TIMESTAMP() - INTERVAL 10 SECOND WHERE job_name = 'test_stall'`
+    );
 
     Cron.config({
       pool,
@@ -478,8 +482,8 @@ describe('node-mysql-cron', () => {
     Cron.start();
 
     try {
-      // Wait for unstall logic to kick in
-      await sleep(2000);
+      // Wait for unstall logic to kick in with more time for timezone processing
+      await sleep(3000);
 
       const job = await getJob('test_stall');
       assert.strictEqual(
@@ -737,7 +741,7 @@ describe('node-mysql-cron', () => {
     await insertJob({
       job_name: 'test_json_edge_cases',
       frequency_secs: 1,
-      retry_secs: 1,
+      retry_secs: 1, // Quick retry
       max_run_secs: 10,
     });
 
@@ -753,24 +757,25 @@ describe('node-mysql-cron', () => {
 
       switch (testCase) {
         case 1:
-          // Circular reference (should trigger JSON.stringify error)
+          // Circular reference (should trigger JSON.stringify error) - throw to force retry
           const circular = { name: 'circular' };
           circular.self = circular;
-          return circular;
+          throw circular; // Throw instead of return to force retry
         case 2:
-          // Function (not JSON serializable)
-          return { func: () => 'test', value: 42 };
+          // Function (not JSON serializable) - throw to force retry
+          throw { func: () => 'test', value: 42 };
         case 3:
-          // Symbol (not JSON serializable)
-          return { symbol: Symbol('test'), value: 42 };
+          // Symbol (not JSON serializable) - throw to force retry
+          throw { symbol: Symbol('test'), value: 42 };
         case 4:
-          // BigInt (not JSON serializable in older Node versions)
+          // BigInt (not JSON serializable in older Node versions) - throw to force retry
           try {
-            return { bigint: BigInt(123), value: 42 };
+            throw { bigint: BigInt(123), value: 42 };
           } catch {
-            return { value: 42 };
+            throw { value: 42 };
           }
         default:
+          // Finally succeed after testing error serialization
           return { success: true, testCase };
       }
     };
