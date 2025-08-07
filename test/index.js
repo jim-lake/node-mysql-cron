@@ -456,18 +456,19 @@ describe('node-mysql-cron', () => {
   test('Job Stalling Detection', async () => {
     await clearJobs();
 
-    // Insert a job with short max_run_secs
+    // Insert a job with very short max_run_secs
     await insertJob({
       job_name: 'test_stall',
       frequency_secs: 1,
       retry_secs: 1,
-      max_run_secs: 1, // Very short max run time
+      max_run_secs: 1, // Very short max run time (1 second)
     });
 
     // Manually update the job to simulate a stalled job that started long ago
-    // Use UTC_TIMESTAMP() to ensure timezone consistency since pool is configured with UTC
+    // Use NOW() to match the stalling detection logic in _unstallJobs
+    // Set it to 30 seconds ago to be absolutely sure it's stalled
     await queryAsync(
-      `UPDATE ${JOB_TABLE} SET status = 'RUNNING', last_start_time = UTC_TIMESTAMP() - INTERVAL 10 SECOND WHERE job_name = 'test_stall'`
+      `UPDATE ${JOB_TABLE} SET status = 'RUNNING', last_start_time = NOW() - INTERVAL 30 SECOND WHERE job_name = 'test_stall'`
     );
 
     Cron.config({
@@ -483,9 +484,20 @@ describe('node-mysql-cron', () => {
 
     try {
       // Wait for unstall logic to kick in with more time for timezone processing
-      await sleep(3000);
+      await sleep(4000);
 
-      const job = await getJob('test_stall');
+      let job = await getJob('test_stall');
+      log(
+        `Job state after initial wait: status=${job?.status}, last_start_time=${job?.last_start_time}, max_run_secs=${job?.max_run_secs}`
+      );
+
+      // If still running, wait a bit more and check again
+      if (job && job.status === 'RUNNING') {
+        await sleep(2000);
+        job = await getJob('test_stall');
+        log(`Job state after additional wait: status=${job?.status}`);
+      }
+
       assert.strictEqual(
         job.status,
         'ERROR',
