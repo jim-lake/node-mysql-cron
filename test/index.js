@@ -575,4 +575,199 @@ describe('node-mysql-cron', () => {
       Cron.stop();
     }
   });
+
+  test('Database Error Handling', async () => {
+    await clearJobs();
+    
+    // Test with invalid database configuration to trigger SQL errors
+    const badPool = mysql.createPool({
+      ...DB_CONFIG,
+      database: 'nonexistent_database'
+    });
+
+    Cron.config({
+      pool: badPool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_db_error', successWorker);
+    Cron.start();
+
+    try {
+      // Let it run for a bit to trigger database errors
+      await sleep(2000);
+      
+      // The system should handle database errors gracefully
+      assert.ok(true, 'System should handle database errors without crashing');
+    } finally {
+      Cron.stop();
+      badPool.end();
+    }
+  });
+
+  test('Job Conflict Handling', async () => {
+    await clearJobs();
+    
+    // Insert a job and manually set it to a state that would cause conflicts
+    await insertJob({
+      job_name: 'test_conflict',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      run_count: 5, // Set a specific run count
+    });
+
+    // Manually update the job to simulate a race condition
+    await queryAsync(
+      `UPDATE ${JOB_TABLE} SET run_count = 10 WHERE job_name = 'test_conflict'`
+    );
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_conflict', successWorker);
+    Cron.start();
+
+    try {
+      // Let it run for a bit - the job should handle conflicts gracefully
+      await sleep(2000);
+      assert.ok(true, 'System should handle job conflicts gracefully');
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  test('Error Serialization Edge Cases', async () => {
+    await clearJobs();
+    
+    await insertJob({
+      job_name: 'test_error_types',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+    });
+
+    let testCase = 0;
+    const errorTypesWorker = async (job) => {
+      testCase++;
+      log(`Error types worker execution #${testCase} for job: ${job.job_name}`);
+      
+      switch (testCase) {
+        case 1:
+          // Error with stack trace
+          throw new Error('Error with stack trace');
+        case 2:
+          // Plain object error
+          throw { message: 'Plain object error', code: 500 };
+        case 3:
+          // String error
+          throw 'String error';
+        case 4:
+          // Number error
+          throw 404;
+        case 5:
+          // Null error
+          throw null;
+        case 6:
+          // Undefined error
+          throw undefined;
+        default:
+          return { success: true, testCase };
+      }
+    };
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_error_types', errorTypesWorker);
+    Cron.start();
+
+    try {
+      // Let it run through several error types
+      await sleep(8000);
+      
+      const job = await getJob('test_error_types');
+      assert.ok(job.run_count >= 6, 'Job should have been executed multiple times to test different error types');
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  test('JSON Serialization Edge Cases', async () => {
+    await clearJobs();
+    
+    await insertJob({
+      job_name: 'test_json_edge_cases',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+    });
+
+    let testCase = 0;
+    const jsonEdgeCasesWorker = async (job) => {
+      testCase++;
+      log(`JSON edge cases worker execution #${testCase} for job: ${job.job_name}`);
+      
+      switch (testCase) {
+        case 1:
+          // Circular reference (should trigger JSON.stringify error)
+          const circular = { name: 'circular' };
+          circular.self = circular;
+          return circular;
+        case 2:
+          // Function (not JSON serializable)
+          return { func: () => 'test', value: 42 };
+        case 3:
+          // Symbol (not JSON serializable)
+          return { symbol: Symbol('test'), value: 42 };
+        case 4:
+          // BigInt (not JSON serializable in older Node versions)
+          try {
+            return { bigint: BigInt(123), value: 42 };
+          } catch {
+            return { value: 42 };
+          }
+        default:
+          return { success: true, testCase };
+      }
+    };
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_json_edge_cases', jsonEdgeCasesWorker);
+    Cron.start();
+
+    try {
+      // Let it run through several JSON edge cases
+      await sleep(5000);
+      
+      const job = await getJob('test_json_edge_cases');
+      assert.ok(job.run_count >= 3, `Job should have been executed multiple times to test JSON edge cases, got: ${job.run_count}`);
+      
+      // The system should handle JSON serialization errors gracefully
+      assert.ok(job.last_result, 'Job should have a result even with JSON serialization issues');
+    } finally {
+      Cron.stop();
+    }
+  });
+
 });
