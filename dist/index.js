@@ -243,9 +243,7 @@ function _defaultErrorLog(...args) {
 function _errorStringify(err) {
     let ret = '';
     if (err instanceof Error) {
-        const stack = err.stack ?? '';
-        const errorObj = _jsonStringify({ ...err });
-        ret = `${stack} ${errorObj}`;
+        ret = `${err.stack ?? ''} ${_jsonStringify({ ...err })}`;
     }
     else if (typeof err === 'object' && err !== null) {
         ret = _jsonStringify(err);
