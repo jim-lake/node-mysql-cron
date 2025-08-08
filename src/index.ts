@@ -1,7 +1,7 @@
 import os from 'node:os';
 import { setTimeout } from 'node:timers/promises';
 
-import type { Pool, MysqlError, OkPacket } from 'mysql';
+import type { MysqlError, OkPacket, Pool } from 'mysql';
 
 const MAX_JOB_HISTORY = 100;
 
@@ -21,7 +21,7 @@ export interface Config {
   pollInterval: number;
   workerId: string;
   parallelLimit: number;
-  errorLog?: (...args: any[]) => void;
+  errorLog?: (...args: unknown[]) => void;
 }
 export interface Job {
   job_name: string;
@@ -36,9 +36,9 @@ export type JobHistory = {
   job_name: string;
   start_time: number;
   end_time?: number;
-  err?: any;
-  result_status?: any;
-  result?: any;
+  err?: unknown;
+  result_status?: unknown;
+  result?: unknown;
 };
 export type JSONValue =
   | string
@@ -65,7 +65,7 @@ const g_config: Config = {
 };
 const g_workerMap: Map<string, WorkerFunction> = new Map();
 
-let errorLog: (...args: any[]) => void = _defaultErrorLog;
+let errorLog: (...args: unknown[]) => void = _defaultErrorLog;
 let g_isStopped = true;
 let g_lastPollStart: number = 0;
 const g_jobHistoryList: JobHistory[] = [];
@@ -100,7 +100,7 @@ export function stop(): void {
 }
 async function _run() {
   while (!g_isStopped) {
-    let jobs_ran: boolean;
+    let jobs_ran = false;
     try {
       jobs_ran = await _poll();
     } catch (e) {
@@ -236,7 +236,10 @@ async function _endJob(params: {
   const { job, next_status, last_result } = params;
   const { job_name, frequency_secs, interval_offset_secs } = job;
 
-  const updates: any = { status: next_status, last_result };
+  const updates: Record<string, MysqlValue> = {
+    status: next_status,
+    last_result,
+  };
 
   let success_sql = '';
   if (next_status === 'WAITING') {
@@ -263,26 +266,35 @@ WHERE job_name = ?
 function _getDefaultWorkerId(): string {
   const host = os.hostname();
   const addresses: os.NetworkInterfaceInfo[] = [];
-  Object.values(os.networkInterfaces()).forEach((list: any) =>
-    list?.forEach?.((addr) => addresses.push(addr))
-  );
+
+  // Use proper for loop with correct typing
+  const networkInterfaces = os.networkInterfaces();
+  for (const interfaceName in networkInterfaces) {
+    const interfaceList = networkInterfaces[interfaceName];
+    if (interfaceList) {
+      for (const addr of interfaceList) {
+        addresses.push(addr);
+      }
+    }
+  }
+
   const first_addr = addresses.find(
     (addr) => !addr.internal && !_isLocalAddress(addr.address)
   );
   let ret = host;
   if (first_addr) {
-    ret += ';' + first_addr.address;
+    ret += `;${first_addr.address}`;
   }
-  ret += ';' + process.pid;
+  ret += `;${String(process.pid)}`;
   return ret;
 }
 function _isLocalAddress(address: string): boolean {
   return address?.startsWith?.('fe80') || address?.startsWith?.('169.254');
 }
-function _defaultErrorLog(...args: any[]): void {
+function _defaultErrorLog(...args: unknown[]): void {
   console.error(...args);
 }
-function _errorStringify(err: any): string {
+function _errorStringify(err: unknown): string {
   let ret = '';
   if (err instanceof Error) {
     ret = `${err.stack} ${_jsonStringify({ ...err })}`;
@@ -293,7 +305,7 @@ function _errorStringify(err: any): string {
   }
   return ret;
 }
-function _jsonStringify(obj: any): string {
+function _jsonStringify(obj: unknown): string {
   let ret = '';
   try {
     ret = JSON.stringify(obj);

@@ -61,7 +61,7 @@ function stop() {
 }
 async function _run() {
     while (!g_isStopped) {
-        let jobs_ran;
+        let jobs_ran = false;
         try {
             jobs_ran = await _poll();
         }
@@ -190,7 +190,10 @@ WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
 async function _endJob(params) {
     const { job, next_status, last_result } = params;
     const { job_name, frequency_secs, interval_offset_secs } = job;
-    const updates = { status: next_status, last_result };
+    const updates = {
+        status: next_status,
+        last_result,
+    };
     let success_sql = '';
     if (next_status === 'WAITING') {
         success_sql = ', last_success_time = NOW()';
@@ -215,13 +218,22 @@ WHERE job_name = ?
 function _getDefaultWorkerId() {
     const host = node_os_1.default.hostname();
     const addresses = [];
-    Object.values(node_os_1.default.networkInterfaces()).forEach((list) => list?.forEach?.((addr) => addresses.push(addr)));
+    // Use proper for loop with correct typing
+    const networkInterfaces = node_os_1.default.networkInterfaces();
+    for (const interfaceName in networkInterfaces) {
+        const interfaceList = networkInterfaces[interfaceName];
+        if (interfaceList) {
+            for (const addr of interfaceList) {
+                addresses.push(addr);
+            }
+        }
+    }
     const first_addr = addresses.find((addr) => !addr.internal && !_isLocalAddress(addr.address));
     let ret = host;
     if (first_addr) {
-        ret += ';' + first_addr.address;
+        ret += `;${first_addr.address}`;
     }
-    ret += ';' + process.pid;
+    ret += `;${String(process.pid)}`;
     return ret;
 }
 function _isLocalAddress(address) {

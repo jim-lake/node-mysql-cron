@@ -6,14 +6,35 @@
     "skipLibCheck": true,
     "declaration": true,
     "esModuleInterop": true,
-    "noImplicitAny": false,
     "sourceMap": true,
     "baseUrl": ".",
     "outDir": "dist",
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "paths": { "*": ["node_modules/*"] },
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+
+    // Strict Type Checking (but practical)
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
+
+    // Additional Checks (practical ones)
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Advanced
+    "forceConsistentCasingInFileNames": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false
   },
   "include": ["src/**/*.ts"]
 }
