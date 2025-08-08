@@ -32,6 +32,9 @@ export interface Job {
   last_result: string;
   status: string;
 }
+interface JobRow extends Job {
+  update_where_sql: string|null;
+}
 export interface JobHistory {
   job_name: string;
   start_time: number;
@@ -147,7 +150,7 @@ WHERE
     errorLog('NMC._unstallJobs: unstalled jobs:', results.affectedRows);
   }
 }
-async function _findJobs(): Promise<Job[]> {
+async function _findJobs(): Promise<JobRow[]> {
   const sql = `
 SELECT *
 FROM ${g_config.jobTable}
@@ -169,19 +172,17 @@ WHERE
   )
 ORDER BY last_start_time ASC
 `;
-  const { err, results } = await _query<Job[]>(sql, []);
+  const { err, results } = await _query<JobRow[]>(sql, []);
   if (err) {
     errorLog('NMC._findJob: sql err:', err);
     throw err;
   }
-
   const job_list = results
     .filter((job) => g_workerMap.has(job.job_name))
     .slice(0, g_config.parallelLimit);
-
   return job_list;
 }
-async function _runJob(job: Job): Promise<void> {
+async function _runJob(job: JobRow): Promise<void> {
   const { job_name } = job;
   const job_history: JobHistory = { job_name, start_time: Date.now() };
   g_jobHistoryList.unshift(job_history);
@@ -219,12 +220,16 @@ async function _runJob(job: Job): Promise<void> {
     job_history.end_time = Date.now();
   }
 }
-async function _startJob(job: Job): Promise<void> {
+async function _startJob(job: JobRow): Promise<void> {
   const { job_name, run_count } = job;
   const sql = `
 UPDATE ${g_config.jobTable}
 SET ?, last_start_time = NOW()
-WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
+WHERE
+  job_name = ?
+  AND status != 'RUNNING'
+  AND run_count = ?
+  ${job.update_where_sql ?? ''}
 `;
   const updates = {
     status: 'RUNNING',

@@ -173,7 +173,11 @@ async function _startJob(job) {
     const sql = `
 UPDATE ${g_config.jobTable}
 SET ?, last_start_time = NOW()
-WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
+WHERE
+  job_name = ?
+  AND status != 'RUNNING'
+  AND run_count = ?
+  ${job.update_where_sql ?? ''}
 `;
     const updates = {
         status: 'RUNNING',
