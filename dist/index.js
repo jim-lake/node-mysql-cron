@@ -11,6 +11,7 @@ exports.setWorker = setWorker;
 exports.start = start;
 exports.stop = stop;
 const node_os_1 = __importDefault(require("node:os"));
+const promises_1 = require("node:timers/promises");
 const MAX_JOB_HISTORY = 100;
 exports.default = {
     config,
@@ -31,7 +32,6 @@ const g_config = {
 const g_workerMap = new Map();
 let errorLog = _defaultErrorLog;
 let g_isStopped = true;
-let g_timeout = null;
 let g_lastPollStart = 0;
 const g_jobHistoryList = [];
 function config(args) {
@@ -54,27 +54,23 @@ function setWorker(job_name, worker_function) {
 }
 function start() {
     g_isStopped = false;
-    _pollLater();
+    void _run();
 }
 function stop() {
     g_isStopped = true;
-    if (g_timeout) {
-        clearTimeout(g_timeout);
-        g_timeout = null;
-    }
 }
-function _pollLater() {
-    if (!g_isStopped) {
-        g_timeout = setTimeout(async () => {
-            try {
-                await _poll();
-                _pollLater();
-            }
-            catch (err) {
-                errorLog('NMC._poll error:', err);
-                _pollLater();
-            }
-        }, g_config.pollInterval);
+async function _run() {
+    while (!g_isStopped) {
+        let jobs_ran;
+        try {
+            jobs_ran = await _poll();
+        }
+        catch (e) {
+            errorLog('NMC._poll threw:', e);
+        }
+        if (!jobs_ran) {
+            await (0, promises_1.setTimeout)(g_config.pollInterval);
+        }
     }
 }
 async function _poll() {
@@ -82,19 +78,10 @@ async function _poll() {
     await _unstallJobs();
     const job_list = await _findJobs();
     if (job_list.length > 0) {
-        // Process jobs in parallel up to parallelLimit
-        const promises = job_list.map(job => _runJob(job));
+        const promises = job_list.map((job) => _runJob(job));
         await Promise.all(promises);
-        // If we found jobs, poll again immediately
-        setImmediate(async () => {
-            try {
-                await _poll();
-            }
-            catch (err) {
-                errorLog('NMC._poll immediate error:', err);
-            }
-        });
     }
+    return job_list.length > 0;
 }
 async function _unstallJobs() {
     const sql = `

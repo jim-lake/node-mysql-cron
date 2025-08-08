@@ -1,6 +1,7 @@
 import os from 'node:os';
+import { setTimeout } from 'node:timers/promises';
 
-import type { MysqlError, OkPacket } from 'mysql';
+import type { Pool, MysqlError, OkPacket } from 'mysql';
 
 const MAX_JOB_HISTORY = 100;
 
@@ -15,7 +16,7 @@ export default {
 };
 
 export interface Config {
-  pool: any | null;
+  pool: Pool | null;
   jobTable: string;
   pollInterval: number;
   workerId: string;
@@ -66,7 +67,6 @@ const g_workerMap: Map<string, WorkerFunction> = new Map();
 
 let errorLog: (...args: any[]) => void = _defaultErrorLog;
 let g_isStopped = true;
-let g_timeout: NodeJS.Timeout | null = null;
 let g_lastPollStart: number = 0;
 const g_jobHistoryList: JobHistory[] = [];
 
@@ -93,48 +93,35 @@ export function setWorker(
 }
 export function start(): void {
   g_isStopped = false;
-  _pollLater();
+  void _run();
 }
 export function stop(): void {
   g_isStopped = true;
-  if (g_timeout) {
-    clearTimeout(g_timeout);
-    g_timeout = null;
+}
+async function _run() {
+  while (!g_isStopped) {
+    let jobs_ran: boolean;
+    try {
+      jobs_ran = await _poll();
+    } catch (e) {
+      errorLog('NMC._poll threw:', e);
+    }
+    if (!jobs_ran) {
+      await setTimeout(g_config.pollInterval);
+    }
   }
 }
-function _pollLater(): void {
-  if (!g_isStopped) {
-    g_timeout = setTimeout(async () => {
-      try {
-        await _poll();
-        _pollLater();
-      } catch (err) {
-        errorLog('NMC._poll error:', err);
-        _pollLater();
-      }
-    }, g_config.pollInterval);
-  }
-}
-async function _poll(): Promise<void> {
+async function _poll(): Promise<boolean> {
   g_lastPollStart = Date.now();
 
   await _unstallJobs();
   const job_list = await _findJobs();
 
   if (job_list.length > 0) {
-    // Process jobs in parallel up to parallelLimit
     const promises = job_list.map((job) => _runJob(job));
     await Promise.all(promises);
-
-    // If we found jobs, poll again immediately
-    setImmediate(async () => {
-      try {
-        await _poll();
-      } catch (err) {
-        errorLog('NMC._poll immediate error:', err);
-      }
-    });
   }
+  return job_list.length > 0;
 }
 async function _unstallJobs(): Promise<void> {
   const sql = `

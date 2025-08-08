@@ -1,3 +1,4 @@
+import type { Pool } from 'mysql';
 declare const _default: {
     config: typeof config;
     isStopped: typeof isStopped;
@@ -9,7 +10,7 @@ declare const _default: {
 };
 export default _default;
 export interface Config {
-    pool: any | null;
+    pool: Pool | null;
     jobTable: string;
     pollInterval: number;
     workerId: string;
