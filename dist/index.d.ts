@@ -8,7 +8,7 @@ declare const _default: {
     getJobHistoryList: typeof getJobHistoryList;
 };
 export default _default;
-interface Config {
+export interface Config {
     pool: any | null;
     jobTable: string;
     pollInterval: number;
@@ -16,7 +16,7 @@ interface Config {
     parallelLimit: number;
     errorLog?: (...args: any[]) => void;
 }
-interface Job {
+export interface Job {
     job_name: string;
     run_count: number;
     frequency_secs: number;
@@ -25,7 +25,7 @@ interface Job {
     last_result: string;
     status: string;
 }
-type JobHistory = {
+export type JobHistory = {
     job_name: string;
     start_time: number;
     end_time?: number;
@@ -33,10 +33,10 @@ type JobHistory = {
     result_status?: any;
     result?: any;
 };
-type JSONValue = string | number | boolean | null | JSONValue[] | {
+export type JSONValue = string | number | boolean | null | JSONValue[] | {
     [key: string]: JSONValue;
 };
-type WorkerFunction = (job: Job) => Promise<JSONValue>;
+export type WorkerFunction = (job: Job) => Promise<JSONValue>;
 export declare function config(args: Partial<Config>): void;
 export declare function isStopped(): boolean;
 export declare function getLastPollStart(): number;

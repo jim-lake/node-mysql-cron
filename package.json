@@ -27,9 +27,6 @@
   "files": [
     "dist/**/*"
   ],
-  "dependencies": {
-    "async": "^3.2.0"
-  },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
     "@types/mysql": "^2.15.27",

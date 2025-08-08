@@ -1,4 +1,3 @@
-import async from 'async';
 import os from 'node:os';
 
 import type { MysqlError, OkPacket } from 'mysql';
@@ -105,45 +104,39 @@ export function stop(): void {
 }
 function _pollLater(): void {
   if (!g_isStopped) {
-    g_timeout = setTimeout(_poll.bind(null, _pollLater), g_config.pollInterval);
+    g_timeout = setTimeout(async () => {
+      try {
+        await _poll();
+        _pollLater();
+      } catch (err) {
+        errorLog('NMC._poll error:', err);
+        _pollLater();
+      }
+    }, g_config.pollInterval);
   }
 }
-function _poll(done: (err?: any) => void): void {
+async function _poll(): Promise<void> {
   g_lastPollStart = Date.now();
-  let job_list: Job[] = [];
-  async.series(
-    [
-      _unstallJobs,
-      (done) => {
-        _findJobs((err, list) => {
-          job_list = list;
-          done(err);
-        });
-      },
-      (done) => {
-        if (job_list.length > 0) {
-          async.each(
-            job_list,
-            (job, done) => {
-              _runJob(job, () => done());
-            },
-            done
-          );
-        } else {
-          done();
-        }
-      },
-    ],
-    (err) => {
-      if (!err && job_list.length > 0) {
-        setImmediate(_poll.bind(null, done));
-      } else {
-        done(err);
+
+  await _unstallJobs();
+  const job_list = await _findJobs();
+
+  if (job_list.length > 0) {
+    // Process jobs in parallel up to parallelLimit
+    const promises = job_list.map((job) => _runJob(job));
+    await Promise.all(promises);
+
+    // If we found jobs, poll again immediately
+    setImmediate(async () => {
+      try {
+        await _poll();
+      } catch (err) {
+        errorLog('NMC._poll immediate error:', err);
       }
-    }
-  );
+    });
+  }
 }
-function _unstallJobs(done: (err?: any) => void): void {
+async function _unstallJobs(): Promise<void> {
   const sql = `
 UPDATE ${g_config.jobTable}
 SET status = 'ERROR', last_result_time = NOW()
@@ -151,16 +144,15 @@ WHERE
   status = 'RUNNING'
   AND last_start_time + INTERVAL max_run_secs SECOND < NOW()
 `;
-  g_config.pool!.query(sql, [], (err, results) => {
-    if (err) {
-      errorLog('NMC._unstallJobs: sql err:', err);
-    } else if (results.affectedRows > 0) {
-      errorLog('NMC._unstallJobs: unstalled jobs:', results.affectedRows);
-    }
-    done(err);
-  });
+  const { err, results } = await _query<OkPacket>(sql, []);
+  if (err) {
+    errorLog('NMC._unstallJobs: sql err:', err);
+    throw err;
+  } else if (results && results.affectedRows > 0) {
+    errorLog('NMC._unstallJobs: unstalled jobs:', results.affectedRows);
+  }
 }
-function _findJobs(done: (err: any, list: Job[]) => void): void {
+async function _findJobs(): Promise<Job[]> {
   const sql = `
 SELECT *
 FROM ${g_config.jobTable}
@@ -182,19 +174,19 @@ WHERE
   )
 ORDER BY last_start_time ASC
 `;
-  g_config.pool!.query(sql, [], (err, results: Job[]) => {
-    let job_list: Job[] = [];
-    if (err) {
-      errorLog('NMC._findJob: sql err:', err);
-    } else {
-      job_list = results
-        .filter((job) => g_workerMap.has(job.job_name))
-        .slice(0, g_config.parallelLimit);
-    }
-    done(err, job_list);
-  });
+  const { err, results } = await _query<Job[]>(sql, []);
+  if (err) {
+    errorLog('NMC._findJob: sql err:', err);
+    throw err;
+  }
+
+  const job_list = (results || [])
+    .filter((job) => g_workerMap.has(job.job_name))
+    .slice(0, g_config.parallelLimit);
+
+  return job_list;
 }
-async function _runJob(job: Job, done: (err?: any) => void): Promise<void> {
+async function _runJob(job: Job): Promise<void> {
   const { job_name } = job;
   const job_history: JobHistory = { job_name, start_time: Date.now() };
   g_jobHistoryList.unshift(job_history);
@@ -202,39 +194,33 @@ async function _runJob(job: Job, done: (err?: any) => void): Promise<void> {
 
   let next_status: string;
   let last_result: string;
-  async.series(
-    [
-      (done) => _startJob(job, done),
-      (done) => {
-        const worker_function = g_workerMap.get(job_name);
-        worker_function!(job)
-          .then((result) => {
-            last_result = _jsonStringify(result);
-            next_status = 'WAITING';
-            done();
-          })
-          .catch((err) => {
-            errorLog('NMC._runJob:', job_name, 'work error:', err);
-            last_result = _errorStringify(err);
-            next_status = 'ERROR';
-            done();
-          });
-      },
-      (done) => {
-        job_history.result_status = next_status;
-        job_history.result = last_result;
-        const opts = { job, next_status, last_result };
-        _endJob(opts, done);
-      },
-    ],
-    (err) => {
-      job_history.end_time = Date.now();
-      job_history.err = err;
-      done(err);
+
+  try {
+    await _startJob(job);
+
+    try {
+      const worker_function = g_workerMap.get(job_name);
+      const result = await worker_function!(job);
+      last_result = _jsonStringify(result);
+      next_status = 'WAITING';
+    } catch (err) {
+      errorLog('NMC._runJob:', job_name, 'work error:', err);
+      last_result = _errorStringify(err);
+      next_status = 'ERROR';
     }
-  );
+
+    job_history.result_status = next_status;
+    job_history.result = last_result;
+    const opts = { job, next_status, last_result };
+    await _endJob(opts);
+  } catch (err) {
+    job_history.err = err;
+    throw err;
+  } finally {
+    job_history.end_time = Date.now();
+  }
 }
-function _startJob(job: Job, done: (err?: any) => void): void {
+async function _startJob(job: Job): Promise<void> {
   const { job_name, run_count } = job;
   const sql = `
 UPDATE ${g_config.jobTable}
@@ -247,19 +233,19 @@ WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
     last_start_worker_id: g_config.workerId,
   };
   const values = [updates, job_name, run_count];
-  g_config.pool!.query(sql, values, (err, results) => {
-    if (err) {
-      errorLog('NMC._startJob:', job_name, ' sql err:', err);
-    } else if (results.affectedRows === 0) {
-      err = 'conflict';
-    }
-    done(err);
-  });
+  const { err, results } = await _query<OkPacket>(sql, values);
+  if (err) {
+    errorLog('NMC._startJob:', job_name, ' sql err:', err);
+    throw err;
+  } else if (results && results.affectedRows === 0) {
+    throw new Error('conflict');
+  }
 }
-function _endJob(
-  params: { job: Job; next_status: string; last_result: string },
-  done: (err?: any) => void
-): void {
+async function _endJob(params: {
+  job: Job;
+  next_status: string;
+  last_result: string;
+}): Promise<void> {
   const { job, next_status, last_result } = params;
   const { job_name, frequency_secs, interval_offset_secs } = job;
 
@@ -281,12 +267,11 @@ SET ?, last_result_time = NOW() ${success_sql}
 WHERE job_name = ?
 `;
   const values = [updates, job_name];
-  g_config.pool!.query(sql, values, (err) => {
-    if (err) {
-      errorLog('NMC._endJob:', job_name, ' sql err:', err);
-    }
-    done(err);
-  });
+  const { err } = await _query(sql, values);
+  if (err) {
+    errorLog('NMC._endJob:', job_name, ' sql err:', err);
+    throw err;
+  }
 }
 function _getDefaultWorkerId(): string {
   const host = os.hostname();

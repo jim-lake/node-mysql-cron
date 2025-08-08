@@ -10,8 +10,8 @@ exports.getJobHistoryList = getJobHistoryList;
 exports.setWorker = setWorker;
 exports.start = start;
 exports.stop = stop;
-const async_1 = __importDefault(require("async"));
 const node_os_1 = __importDefault(require("node:os"));
+const MAX_JOB_HISTORY = 100;
 exports.default = {
     config,
     isStopped,
@@ -21,7 +21,6 @@ exports.default = {
     getLastPollStart,
     getJobHistoryList,
 };
-const MAX_JOB_HISTORY = 100;
 const g_config = {
     pool: null,
     jobTable: 'nmc_job',
@@ -66,40 +65,38 @@ function stop() {
 }
 function _pollLater() {
     if (!g_isStopped) {
-        g_timeout = setTimeout(_poll.bind(null, _pollLater), g_config.pollInterval);
+        g_timeout = setTimeout(async () => {
+            try {
+                await _poll();
+                _pollLater();
+            }
+            catch (err) {
+                errorLog('NMC._poll error:', err);
+                _pollLater();
+            }
+        }, g_config.pollInterval);
     }
 }
-function _poll(done) {
+async function _poll() {
     g_lastPollStart = Date.now();
-    let job_list = [];
-    async_1.default.series([
-        _unstallJobs,
-        (done) => {
-            _findJobs((err, list) => {
-                job_list = list;
-                done(err);
-            });
-        },
-        (done) => {
-            if (job_list.length > 0) {
-                async_1.default.each(job_list, (job, done) => {
-                    _runJob(job, () => done());
-                }, done);
+    await _unstallJobs();
+    const job_list = await _findJobs();
+    if (job_list.length > 0) {
+        // Process jobs in parallel up to parallelLimit
+        const promises = job_list.map(job => _runJob(job));
+        await Promise.all(promises);
+        // If we found jobs, poll again immediately
+        setImmediate(async () => {
+            try {
+                await _poll();
             }
-            else {
-                done();
+            catch (err) {
+                errorLog('NMC._poll immediate error:', err);
             }
-        },
-    ], (err) => {
-        if (!err && job_list.length > 0) {
-            setImmediate(_poll.bind(null, done));
-        }
-        else {
-            done(err);
-        }
-    });
+        });
+    }
 }
-function _unstallJobs(done) {
+async function _unstallJobs() {
     const sql = `
 UPDATE ${g_config.jobTable}
 SET status = 'ERROR', last_result_time = NOW()
@@ -107,17 +104,16 @@ WHERE
   status = 'RUNNING'
   AND last_start_time + INTERVAL max_run_secs SECOND < NOW()
 `;
-    g_config.pool.query(sql, [], (err, results) => {
-        if (err) {
-            errorLog('NMC._unstallJobs: sql err:', err);
-        }
-        else if (results.affectedRows > 0) {
-            errorLog('NMC._unstallJobs: unstalled jobs:', results.affectedRows);
-        }
-        done(err);
-    });
+    const { err, results } = await _query(sql, []);
+    if (err) {
+        errorLog('NMC._unstallJobs: sql err:', err);
+        throw err;
+    }
+    else if (results && results.affectedRows > 0) {
+        errorLog('NMC._unstallJobs: unstalled jobs:', results.affectedRows);
+    }
 }
-function _findJobs(done) {
+async function _findJobs() {
     const sql = `
 SELECT *
 FROM ${g_config.jobTable}
@@ -139,59 +135,50 @@ WHERE
   )
 ORDER BY last_start_time ASC
 `;
-    g_config.pool.query(sql, [], (err, results) => {
-        let job_list = [];
-        if (err) {
-            errorLog('NMC._findJob: sql err:', err);
-        }
-        else {
-            job_list = results
-                .filter((job) => g_workerMap.has(job.job_name))
-                .slice(0, g_config.parallelLimit);
-        }
-        done(err, job_list);
-    });
+    const { err, results } = await _query(sql, []);
+    if (err) {
+        errorLog('NMC._findJob: sql err:', err);
+        throw err;
+    }
+    const job_list = (results || [])
+        .filter((job) => g_workerMap.has(job.job_name))
+        .slice(0, g_config.parallelLimit);
+    return job_list;
 }
-async function _runJob(job, done) {
+async function _runJob(job) {
     const { job_name } = job;
-    const job_history = {
-        job_name,
-        start_time: Date.now(),
-    };
+    const job_history = { job_name, start_time: Date.now() };
     g_jobHistoryList.unshift(job_history);
     g_jobHistoryList.splice(MAX_JOB_HISTORY);
     let next_status;
     let last_result;
-    async_1.default.series([
-        (done) => _startJob(job, done),
-        (done) => {
+    try {
+        await _startJob(job);
+        try {
             const worker_function = g_workerMap.get(job_name);
-            worker_function(job)
-                .then((result) => {
-                last_result = _jsonStringify(result);
-                next_status = 'WAITING';
-                done();
-            })
-                .catch((err) => {
-                errorLog('NMC._runJob:', job_name, 'work error:', err);
-                last_result = _errorStringify(err);
-                next_status = 'ERROR';
-                done();
-            });
-        },
-        (done) => {
-            job_history.result_status = next_status;
-            job_history.result = last_result;
-            const opts = { job, next_status, last_result };
-            _endJob(opts, done);
-        },
-    ], (err) => {
-        job_history.end_time = Date.now();
+            const result = await worker_function(job);
+            last_result = _jsonStringify(result);
+            next_status = 'WAITING';
+        }
+        catch (err) {
+            errorLog('NMC._runJob:', job_name, 'work error:', err);
+            last_result = _errorStringify(err);
+            next_status = 'ERROR';
+        }
+        job_history.result_status = next_status;
+        job_history.result = last_result;
+        const opts = { job, next_status, last_result };
+        await _endJob(opts);
+    }
+    catch (err) {
         job_history.err = err;
-        done(err);
-    });
+        throw err;
+    }
+    finally {
+        job_history.end_time = Date.now();
+    }
 }
-function _startJob(job, done) {
+async function _startJob(job) {
     const { job_name, run_count } = job;
     const sql = `
 UPDATE ${g_config.jobTable}
@@ -204,23 +191,19 @@ WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
         last_start_worker_id: g_config.workerId,
     };
     const values = [updates, job_name, run_count];
-    g_config.pool.query(sql, values, (err, results) => {
-        if (err) {
-            errorLog('NMC._startJob:', job_name, ' sql err:', err);
-        }
-        else if (results.affectedRows === 0) {
-            err = 'conflict';
-        }
-        done(err);
-    });
+    const { err, results } = await _query(sql, values);
+    if (err) {
+        errorLog('NMC._startJob:', job_name, ' sql err:', err);
+        throw err;
+    }
+    else if (results && results.affectedRows === 0) {
+        throw new Error('conflict');
+    }
 }
-function _endJob(params, done) {
+async function _endJob(params) {
     const { job, next_status, last_result } = params;
     const { job_name, frequency_secs, interval_offset_secs } = job;
-    const updates = {
-        status: next_status,
-        last_result,
-    };
+    const updates = { status: next_status, last_result };
     let success_sql = '';
     if (next_status === 'WAITING') {
         success_sql = ', last_success_time = NOW()';
@@ -236,12 +219,11 @@ SET ?, last_result_time = NOW() ${success_sql}
 WHERE job_name = ?
 `;
     const values = [updates, job_name];
-    g_config.pool.query(sql, values, (err) => {
-        if (err) {
-            errorLog('NMC._endJob:', job_name, ' sql err:', err);
-        }
-        done(err);
-    });
+    const { err } = await _query(sql, values);
+    if (err) {
+        errorLog('NMC._endJob:', job_name, ' sql err:', err);
+        throw err;
+    }
 }
 function _getDefaultWorkerId() {
     const host = node_os_1.default.hostname();
@@ -283,5 +265,17 @@ function _jsonStringify(obj) {
         ret = String(obj);
     }
     return ret;
+}
+async function _query(sql, values) {
+    return new Promise((resolve, reject) => {
+        if (g_config.pool) {
+            g_config.pool.query(sql, values, (err, results) => {
+                resolve({ err, results: results });
+            });
+        }
+        else {
+            reject(new Error('no_pool'));
+        }
+    });
 }
 //# sourceMappingURL=index.js.map
