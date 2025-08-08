@@ -15,13 +15,12 @@ export default {
   getLastPollStart,
   getJobHistoryList,
 };
-
-export interface Config {
-  pool: Pool | null;
-  jobTable: string;
-  pollInterval: number;
-  workerId: string;
-  parallelLimit: number;
+export interface ConfigParams {
+  pool: Pool;
+  jobTable?: string;
+  pollInterval?: number;
+  workerId?: string;
+  parallelLimit?: number;
   errorLog?: (...args: readonly unknown[]) => void;
 }
 export interface Job {
@@ -57,7 +56,14 @@ type QueryResult<T> =
   | { err: null; results: T }
   | { err: MysqlError; results?: T };
 
-const g_config: Config = {
+interface InternalConfig {
+  pool: Pool | null;
+  jobTable: string;
+  pollInterval: number;
+  workerId: string;
+  parallelLimit: number;
+}
+const g_config: InternalConfig = {
   pool: null,
   jobTable: 'nmc_job',
   pollInterval: 60 * 1000,
@@ -71,10 +77,11 @@ let g_isStopped = true;
 let g_lastPollStart = 0;
 const g_jobHistoryList: JobHistory[] = [];
 
-export function config(args: Partial<Config>): void {
-  Object.assign(g_config, args);
-  if (args.errorLog) {
-    errorLog = args.errorLog;
+export function config(params: ConfigParams): void {
+  const { errorLog: _, ...other } = params;
+  Object.assign(g_config, other);
+  if (params.errorLog) {
+    errorLog = params.errorLog;
   }
 }
 export function isStopped(): boolean {

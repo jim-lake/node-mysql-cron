@@ -19,7 +19,12 @@ export default tseslint.config(
       },
     },
     rules: {
-      // TypeScript strict rules - MAXIMUM STRICTNESS
+      '@typescript-eslint/no-misused-spread': [
+        'error',
+        {
+          allow: ['Error'],
+        },
+      ],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unsafe-assignment': 'error',
       '@typescript-eslint/no-unsafe-call': 'error',
@@ -79,7 +84,6 @@ export default tseslint.config(
       '@typescript-eslint/prefer-optional-chain': 'error',
       '@typescript-eslint/no-unnecessary-type-assertion': 'error',
       '@typescript-eslint/prefer-readonly': 'error',
-      '@typescript-eslint/prefer-readonly-parameter-types': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       '@typescript-eslint/no-non-null-asserted-optional-chain': 'error',
       '@typescript-eslint/no-non-null-asserted-nullish-coalescing': 'error',

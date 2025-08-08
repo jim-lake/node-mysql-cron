@@ -1,6 +1,6 @@
 import mysql from 'mysql';
 import Cron, {
-  type Config,
+  type ConfigParams,
   type Job,
   type JSONValue,
   type WorkerFunction,
@@ -181,7 +181,7 @@ const reportWorker: WorkerFunction = async (job: Job) => {
 
 // Type-safe configuration function
 function configureCronSystem(pool: mysql.Pool): void {
-  const config: Partial<Config> = {
+  const config: ConfigParams = {
     pool,
     jobTable: 'nmc_job',
     pollInterval: 30000, // Check every 30 seconds
@@ -190,7 +190,6 @@ function configureCronSystem(pool: mysql.Pool): void {
       console.error(`[CRON ERROR] ${String(message)}`, ...args);
     },
   };
-
   Cron.config(config);
 }
 

@@ -31,10 +31,11 @@ let errorLog = _defaultErrorLog;
 let g_isStopped = true;
 let g_lastPollStart = 0;
 const g_jobHistoryList = [];
-function config(args) {
-    Object.assign(g_config, args);
-    if (args.errorLog) {
-        errorLog = args.errorLog;
+function config(params) {
+    const { errorLog: _, ...other } = params;
+    Object.assign(g_config, other);
+    if (params.errorLog) {
+        errorLog = params.errorLog;
     }
 }
 function isStopped() {
