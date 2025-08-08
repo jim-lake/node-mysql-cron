@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "A mysql based periodic cron",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
     "build": "tsc",
     "ts-check": "tsc --noEmit",
@@ -24,9 +28,6 @@
     "name": "Jim Lake"
   },
   "license": "MIT",
-  "files": [
-    "dist/**/*"
-  ],
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@types/mysql": "^2.15.27",
