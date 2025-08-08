@@ -208,7 +208,7 @@ WHERE job_name = ?
     const values = [updates, job_name];
     const { err } = await _query(sql, values);
     if (err) {
-        errorLog('NMC._endJob:', job_name, ' sql err:', err);
+        errorLog('NMC._endJob:', job_name, 'sql err:', err);
         throw err;
     }
 }
@@ -232,8 +232,8 @@ function _defaultErrorLog(...args) {
 }
 function _errorStringify(err) {
     let ret = '';
-    if (err && err.stack) {
-        ret = String(err.stack);
+    if (err instanceof Error) {
+        ret = `${err.stack} ${_jsonStringify({ ...err })}`;
     }
     else if (typeof err === 'object') {
         ret = _jsonStringify(err);
