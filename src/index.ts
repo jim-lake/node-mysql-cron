@@ -266,18 +266,13 @@ WHERE job_name = ?
 function _getDefaultWorkerId(): string {
   const host = os.hostname();
   const addresses: os.NetworkInterfaceInfo[] = [];
-
-  // Use proper for loop with correct typing
-  const networkInterfaces = os.networkInterfaces();
-  for (const interfaceName in networkInterfaces) {
-    const interfaceList = networkInterfaces[interfaceName];
+  for (const interfaceList of Object.values(os.networkInterfaces())) {
     if (interfaceList) {
       for (const addr of interfaceList) {
         addresses.push(addr);
       }
     }
   }
-
   const first_addr = addresses.find(
     (addr) => !addr.internal && !_isLocalAddress(addr.address)
   );
@@ -285,7 +280,7 @@ function _getDefaultWorkerId(): string {
   if (first_addr) {
     ret += `;${first_addr.address}`;
   }
-  ret += `;${String(process.pid)}`;
+  ret += `;${process.pid}`;
   return ret;
 }
 function _isLocalAddress(address: string): boolean {
