@@ -73,10 +73,10 @@ const emailWorker: WorkerFunction = async (job: Job) => {
   // Simulate email sending with proper error handling
   try {
     const recipients = ['user1@example.com', 'user2@example.com'];
-    
+
     // Simulate async email sending
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    
+
     // Simulate potential failure
     if (Math.random() < 0.1) {
       throw new JobError('SMTP server unavailable', job.job_name, true);
@@ -105,24 +105,26 @@ const emailWorker: WorkerFunction = async (job: Job) => {
 
 const dataSyncWorker: WorkerFunction = async (job: Job) => {
   console.log(`Starting data sync job: ${job.job_name}`);
-  
+
   const startTime = Date.now();
   const errors: string[] = [];
-  
+
   try {
     // Simulate data fetching and processing
     await new Promise((resolve) => setTimeout(resolve, 5000));
-    
+
     // Simulate processing results
     const recordsProcessed = Math.floor(Math.random() * 1000) + 100;
     const recordsUpdated = Math.floor(recordsProcessed * 0.3);
     const recordsCreated = recordsProcessed - recordsUpdated;
-    
+
     // Simulate some non-critical errors
     if (Math.random() < 0.3) {
-      errors.push('Warning: Some records had validation issues but were processed');
+      errors.push(
+        'Warning: Some records had validation issues but were processed'
+      );
     }
-    
+
     const result: DataSyncResult = {
       success: true,
       recordsProcessed,
@@ -145,11 +147,11 @@ const dataSyncWorker: WorkerFunction = async (job: Job) => {
 
 const reportWorker: WorkerFunction = async (job: Job) => {
   console.log(`Starting report generation: ${job.job_name}`);
-  
+
   try {
     // Simulate report generation
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    
+
     // Determine report type based on job name
     let reportType: ReportGenerationResult['reportType'] = 'daily';
     if (job.job_name.includes('weekly')) {
@@ -157,7 +159,7 @@ const reportWorker: WorkerFunction = async (job: Job) => {
     } else if (job.job_name.includes('monthly')) {
       reportType = 'monthly';
     }
-    
+
     const result: ReportGenerationResult = {
       success: true,
       reportPath: `/reports/${job.job_name}_${Date.now()}.pdf`,
@@ -222,7 +224,9 @@ function createJob(pool: mysql.Pool, jobDef: JobDefinition): Promise<void> {
 
     pool.query('INSERT INTO nmc_job SET ?', [job], (err, _result) => {
       if (err) {
-        reject(new Error(`Failed to create job ${job.job_name}: ${err.message}`));
+        reject(
+          new Error(`Failed to create job ${job.job_name}: ${err.message}`)
+        );
       } else {
         console.log(`Job created: ${job.job_name}`);
         resolve();
@@ -236,12 +240,12 @@ function monitorJobHistory(): void {
   setInterval(() => {
     const history: JobHistory[] = Cron.getJobHistoryList();
     const recentJobs = history.slice(-5); // Get last 5 jobs
-    
+
     console.log('\n=== Recent Job History ===');
     for (const job of recentJobs) {
       const duration = job.end_time ? job.end_time - job.start_time : 'running';
       const status = job.err ? 'ERROR' : job.end_time ? 'SUCCESS' : 'RUNNING';
-      
+
       console.log(`${job.job_name}: ${status} (${duration}ms)`);
       if (job.err) {
         console.log(`  Error: ${String(job.err)}`);
@@ -299,7 +303,10 @@ async function main(): Promise<void> {
       try {
         await createJob(pool, jobDef);
       } catch (error) {
-        if (error instanceof Error && error.message.includes('Duplicate entry')) {
+        if (
+          error instanceof Error &&
+          error.message.includes('Duplicate entry')
+        ) {
           console.log(`Job ${jobDef.job_name} already exists, skipping...`);
         } else {
           throw error;

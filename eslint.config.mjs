@@ -6,6 +6,11 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.strict,
+  ...tseslint.configs.strictTypeChecked,
+  ...tseslint.configs.stylistic,
+  ...tseslint.configs.stylisticTypeChecked,
   {
     languageOptions: {
       parserOptions: {
@@ -14,121 +19,520 @@ export default tseslint.config(
       },
     },
     rules: {
-      // TypeScript strict rules
+      // TypeScript strict rules - MAXIMUM STRICTNESS
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unsafe-assignment': 'error',
       '@typescript-eslint/no-unsafe-call': 'error',
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-return': 'error',
       '@typescript-eslint/no-unsafe-argument': 'error',
-      '@typescript-eslint/restrict-template-expressions': 'error',
-      '@typescript-eslint/restrict-plus-operands': 'error',
-      '@typescript-eslint/no-floating-promises': 'error',
-      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/no-unsafe-enum-comparison': 'error',
+      '@typescript-eslint/no-unsafe-unary-minus': 'error',
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        {
+          allowNumber: true,
+          allowBoolean: false,
+          allowAny: false,
+          allowNullish: false,
+          allowRegExp: false,
+          allowNever: false,
+        },
+      ],
+      '@typescript-eslint/restrict-plus-operands': [
+        'error',
+        {
+          allowAny: false,
+          allowBoolean: false,
+          allowNullish: false,
+          allowNumberAndString: false,
+          allowRegExp: false,
+        },
+      ],
+      '@typescript-eslint/no-floating-promises': [
+        'error',
+        { ignoreIIFE: false },
+      ],
+      '@typescript-eslint/no-misused-promises': [
+        'error',
+        {
+          checksConditionals: true,
+          checksVoidReturn: true,
+          checksSpreads: true,
+        },
+      ],
       '@typescript-eslint/await-thenable': 'error',
       '@typescript-eslint/require-await': 'error',
-      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': [
+        'error',
+        {
+          ignoreConditionalTests: false,
+          ignoreMixedLogicalExpressions: false,
+          ignorePrimitives: {
+            bigint: false,
+            boolean: false,
+            number: false,
+            string: false,
+          },
+        },
+      ],
       '@typescript-eslint/prefer-optional-chain': 'error',
       '@typescript-eslint/no-unnecessary-type-assertion': 'error',
       '@typescript-eslint/prefer-readonly': 'error',
+      '@typescript-eslint/prefer-readonly-parameter-types': 'error',
+      '@typescript-eslint/no-non-null-assertion': 'error',
+      '@typescript-eslint/no-non-null-asserted-optional-chain': 'error',
+      '@typescript-eslint/no-non-null-asserted-nullish-coalescing': 'error',
+      '@typescript-eslint/no-unnecessary-condition': [
+        'error',
+        {
+          allowConstantLoopConditions: false,
+          allowRuleToRunWithoutStrictNullChecksIKnowWhatIAmDoing: false,
+        },
+      ],
+      '@typescript-eslint/no-unnecessary-boolean-literal-compare': 'error',
+      '@typescript-eslint/no-unnecessary-type-arguments': 'error',
+      '@typescript-eslint/no-unnecessary-type-constraint': 'error',
+      '@typescript-eslint/no-unnecessary-qualifier': 'error',
+      '@typescript-eslint/no-useless-empty-export': 'error',
+      '@typescript-eslint/prefer-as-const': 'error',
+      '@typescript-eslint/prefer-for-of': 'error',
+      '@typescript-eslint/prefer-function-type': 'error',
+      '@typescript-eslint/prefer-includes': 'error',
+      '@typescript-eslint/prefer-literal-enum-member': 'error',
+      '@typescript-eslint/prefer-reduce-type-parameter': 'error',
+      '@typescript-eslint/prefer-return-this-type': 'error',
+      '@typescript-eslint/prefer-string-starts-ends-with': 'error',
+      '@typescript-eslint/prefer-ts-expect-error': 'error',
+      '@typescript-eslint/promise-function-async': 'error',
+      '@typescript-eslint/require-array-sort-compare': [
+        'error',
+        { ignoreStringArrays: false },
+      ],
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/unbound-method': ['error', { ignoreStatic: false }],
 
-      // Allow function hoisting - it's a valid JS pattern used in this codebase
-      '@typescript-eslint/no-use-before-define': 'off',
-
-      // Code quality rules
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
+          args: 'all',
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+          ignoreRestSiblings: false,
         },
       ],
-      '@typescript-eslint/no-shadow': 'error',
+      '@typescript-eslint/no-shadow': [
+        'error',
+        {
+          builtinGlobals: true,
+          hoist: 'all',
+          allow: [],
+          ignoreOnInitialization: false,
+        },
+      ],
       '@typescript-eslint/no-duplicate-enum-values': 'error',
       '@typescript-eslint/no-duplicate-type-constituents': 'error',
       '@typescript-eslint/no-redundant-type-constituents': 'error',
+      '@typescript-eslint/no-meaningless-void-operator': 'error',
+      '@typescript-eslint/no-mixed-enums': 'error',
+      '@typescript-eslint/no-confusing-void-expression': [
+        'error',
+        { ignoreArrowShorthand: false, ignoreVoidOperator: false },
+      ],
+      '@typescript-eslint/no-confusing-non-null-assertion': 'error',
+      '@typescript-eslint/no-dynamic-delete': 'error',
+      '@typescript-eslint/no-empty-interface': [
+        'error',
+        { allowSingleExtends: false },
+      ],
+      '@typescript-eslint/no-extra-non-null-assertion': 'error',
+      '@typescript-eslint/no-extraneous-class': [
+        'error',
+        {
+          allowConstructorOnly: false,
+          allowEmpty: false,
+          allowStaticOnly: false,
+          allowWithDecorator: false,
+        },
+      ],
+      '@typescript-eslint/no-for-in-array': 'error',
+      '@typescript-eslint/no-implied-eval': 'error',
+      '@typescript-eslint/no-invalid-void-type': 'error',
+      '@typescript-eslint/no-misused-new': 'error',
+      '@typescript-eslint/no-namespace': [
+        'error',
+        { allowDeclarations: false, allowDefinitionFiles: false },
+      ],
+      '@typescript-eslint/no-require-imports': 'error',
+      '@typescript-eslint/no-this-alias': [
+        'error',
+        { allowDestructuring: false, allowedNames: [] },
+      ],
+      '@typescript-eslint/no-unnecessary-type-parameters': 'error',
+      '@typescript-eslint/no-var-requires': 'error',
+      '@typescript-eslint/only-throw-error': 'error',
+      '@typescript-eslint/prefer-enum-initializers': 'error',
+      '@typescript-eslint/prefer-namespace-keyword': 'error',
+      '@typescript-eslint/triple-slash-reference': 'error',
+      '@typescript-eslint/unified-signatures': 'error',
 
-      // Naming conventions that match the existing codebase
       '@typescript-eslint/naming-convention': [
         'error',
-        // Constants should be UPPER_CASE
+        // Constants can be UPPER_CASE or camelCase (like MAX_JOB_HISTORY)
         {
           selector: 'variable',
           modifiers: ['const'],
-          format: ['UPPER_CASE', 'camelCase', 'snake_case'],
+          format: ['UPPER_CASE', 'camelCase'],
           leadingUnderscore: 'allow',
+          trailingUnderscore: 'forbid',
         },
-        // Global variables with g_ prefix
+        // Global variables with g_ prefix (like g_config, g_workerMap)
         {
           selector: 'variable',
           filter: { regex: '^g_', match: true },
           format: ['camelCase'],
           prefix: ['g_'],
+          leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
         },
-        // Private functions with _ prefix
+        // Private functions with _ prefix (like _run, _poll, _findJobs)
         {
           selector: 'function',
           filter: { regex: '^_', match: true },
           format: ['camelCase'],
           leadingUnderscore: 'require',
+          trailingUnderscore: 'forbid',
         },
-        // Public functions should be camelCase
+        // Public functions are camelCase (like config, start, stop)
         {
           selector: 'function',
           filter: { regex: '^_', match: false },
           format: ['camelCase'],
           leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
         },
-        // Parameters can be snake_case or camelCase (existing pattern)
+        // Variables can be camelCase or snake_case (like job_name, worker_function)
+        {
+          selector: 'variable',
+          format: ['camelCase', 'snake_case'],
+          leadingUnderscore: 'allow',
+          trailingUnderscore: 'forbid',
+        },
+        // Parameters can be camelCase or snake_case (like job_name, worker_function)
         {
           selector: 'parameter',
           format: ['camelCase', 'snake_case'],
           leadingUnderscore: 'allow',
+          trailingUnderscore: 'forbid',
         },
-        // Types should be PascalCase
-        { selector: 'typeLike', format: ['PascalCase'] },
+        // Object properties can be camelCase or snake_case (database fields like job_name, run_count)
+        {
+          selector: 'property',
+          format: ['camelCase', 'snake_case'],
+          leadingUnderscore: 'allow',
+          trailingUnderscore: 'forbid',
+        },
+        // Methods are camelCase
+        {
+          selector: 'method',
+          format: ['camelCase'],
+          leadingUnderscore: 'allow',
+          trailingUnderscore: 'forbid',
+        },
+        // Types, interfaces, classes are PascalCase (like Config, Job, WorkerFunction)
+        {
+          selector: 'typeLike',
+          format: ['PascalCase'],
+          leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
+        },
+        // Type aliases are PascalCase (like JSONValue, QueryResult)
+        {
+          selector: 'typeAlias',
+          format: ['PascalCase'],
+          leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
+        },
+        // Interfaces are PascalCase (like Config, Job)
+        {
+          selector: 'interface',
+          format: ['PascalCase'],
+          leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
+        },
+        // Enums are PascalCase
+        {
+          selector: 'enum',
+          format: ['PascalCase'],
+          leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
+        },
+        // Enum members are UPPER_CASE
+        {
+          selector: 'enumMember',
+          format: ['UPPER_CASE'],
+          leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
+        },
+        // Classes are PascalCase
+        {
+          selector: 'class',
+          format: ['PascalCase'],
+          leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
+        },
       ],
 
-      // General JavaScript/ESLint rules
-      'no-console': 'off', // Allow console for this project
+      // General JavaScript/ESLint rules - MAXIMUM STRICTNESS
+      'no-console': 'error', // No console allowed in strict mode
       'no-debugger': 'error',
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
       'no-var': 'error',
       'prefer-const': 'error',
-      eqeqeq: ['error', 'always'],
+      eqeqeq: ['error', 'always', { null: 'always' }],
       curly: ['error', 'all'],
-      'no-else-return': 'error',
+      'no-else-return': ['error', { allowElseIf: false }],
       'no-lonely-if': 'error',
-      'no-unneeded-ternary': 'error',
+      'no-unneeded-ternary': ['error', { defaultAssignment: false }],
       'prefer-template': 'error',
-      'object-shorthand': 'error',
-      'prefer-arrow-callback': 'error',
-
-      // Complexity rules
-      complexity: ['error', 15],
-      'max-depth': ['error', 4],
-      'max-nested-callbacks': ['error', 3],
-      'max-params': ['error', 5],
-      'max-lines-per-function': [
+      'object-shorthand': [
         'error',
-        { max: 50, skipBlankLines: true, skipComments: true },
-      ],
-
-      // Import/export rules
-      'no-duplicate-imports': 'error',
-      'sort-imports': [
-        'error',
+        'always',
         {
-          ignoreCase: false,
-          ignoreDeclarationSort: true,
-          ignoreMemberSort: false,
-          memberSyntaxSortOrder: ['none', 'all', 'multiple', 'single'],
-          allowSeparatedGroups: true,
+          avoidQuotes: true,
+          ignoreConstructors: false,
+          avoidExplicitReturnArrows: true,
         },
       ],
+      'prefer-arrow-callback': [
+        'error',
+        { allowNamedFunctions: false, allowUnboundThis: false },
+      ],
+      'no-alert': 'error',
+      'no-caller': 'error',
+      'no-constructor-return': 'error',
+      'no-empty-function': 'error',
+      'no-extend-native': 'error',
+      'no-extra-bind': 'error',
+      'no-extra-label': 'error',
+      'no-global-assign': 'error',
+      'no-implicit-coercion': 'error',
+      'no-implicit-globals': 'error',
+      'no-invalid-this': 'error',
+      'no-iterator': 'error',
+      'no-labels': 'error',
+      'no-lone-blocks': 'error',
+      'no-loop-func': 'error',
+      'no-multi-assign': 'error',
+      'no-multi-str': 'error',
+      'no-new': 'error',
+      'no-new-object': 'error',
+      'no-new-wrappers': 'error',
+      'no-octal-escape': 'error',
+      'no-param-reassign': ['error', { props: true }],
+      'no-proto': 'error',
+      'no-return-assign': ['error', 'always'],
+      'no-return-await': 'error',
+      'no-script-url': 'error',
+      'no-self-compare': 'error',
+      'no-sequences': 'error',
+      'no-throw-literal': 'error',
+      'no-unused-expressions': [
+        'error',
+        {
+          allowShortCircuit: false,
+          allowTernary: false,
+          allowTaggedTemplates: false,
+          enforceForJSX: true,
+        },
+      ],
+      'no-useless-call': 'error',
+      'no-useless-concat': 'error',
+      'no-useless-return': 'error',
+      'no-warning-comments': [
+        'error',
+        { terms: ['todo', 'fixme', 'hack', 'bug'], location: 'anywhere' },
+      ],
+      'prefer-named-capture-group': 'error',
+      'prefer-promise-reject-errors': 'error',
+      'prefer-regex-literals': 'error',
+      radix: 'error',
+      'require-unicode-regexp': 'error',
+      'wrap-iife': ['error', 'inside'],
+      yoda: 'error',
+
+      // Strict variable rules
+      'no-delete-var': 'error',
+      'no-label-var': 'error',
+      'no-restricted-globals': 'error',
+      'no-undef-init': 'error',
+      'no-undefined': 'error',
+
+      // Complexity rules - VERY STRICT
+      complexity: ['error', 8],
+      'max-depth': ['error', 3],
+      'max-nested-callbacks': ['error', 2],
+      'max-params': ['error', 3],
+      'max-statements-per-line': ['error', { max: 1 }],
+
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        {
+          prefer: 'type-imports',
+          disallowTypeAnnotations: false,
+          fixStyle: 'separate-type-imports',
+        },
+      ],
+
+      'array-bracket-newline': ['error', 'consistent'],
+      'array-bracket-spacing': ['error', 'never'],
+      'array-element-newline': ['error', 'consistent'],
+      'block-spacing': ['error', 'always'],
+      'brace-style': ['error', '1tbs', { allowSingleLine: false }],
+
+      'comma-spacing': ['error', { before: false, after: true }],
+      'comma-style': ['error', 'last'],
+      'computed-property-spacing': ['error', 'never'],
+      'consistent-this': ['error', 'self'],
+      'eol-last': ['error', 'always'],
+      'func-call-spacing': ['error', 'never'],
+      'func-name-matching': 'error',
+      'func-names': ['error', 'always'],
+      'func-style': ['error', 'declaration', { allowArrowFunctions: false }],
+      'function-call-argument-newline': ['error', 'consistent'],
+      'function-paren-newline': ['error', 'consistent'],
+      'id-length': [
+        'error',
+        { min: 2, max: 30, exceptions: ['i', 'j', 'k', 'x', 'y', 'z', '_', 'e'] },
+      ],
+      indent: [
+        'error',
+        2,
+        {
+          SwitchCase: 1,
+          VariableDeclarator: 1,
+          outerIIFEBody: 1,
+          MemberExpression: 1,
+          FunctionDeclaration: { parameters: 1, body: 1 },
+          FunctionExpression: { parameters: 1, body: 1 },
+          CallExpression: { arguments: 1 },
+          ArrayExpression: 1,
+          ObjectExpression: 1,
+          ImportDeclaration: 1,
+          flatTernaryExpressions: false,
+          offsetTernaryExpressions: false,
+          ignoreComments: false,
+        },
+      ],
+      'key-spacing': [
+        'error',
+        { beforeColon: false, afterColon: true, mode: 'strict' },
+      ],
+      'keyword-spacing': ['error', { before: true, after: true }],
+      'line-comment-position': ['error', { position: 'above' }],
+      'lines-around-comment': [
+        'error',
+        {
+          beforeBlockComment: true,
+          afterBlockComment: false,
+          beforeLineComment: true,
+          afterLineComment: false,
+          allowBlockStart: false,
+          allowBlockEnd: false,
+          allowObjectStart: false,
+          allowObjectEnd: false,
+          allowArrayStart: false,
+          allowArrayEnd: false,
+          allowClassStart: false,
+          allowClassEnd: false,
+        },
+      ],
+      'lines-between-class-members': [
+        'error',
+        'always',
+        { exceptAfterSingleLine: false },
+      ],
+      'max-len': [
+        'error',
+        {
+          code: 80,
+          tabWidth: 2,
+          ignoreUrls: false,
+          ignoreComments: false,
+          ignoreRegExpLiterals: false,
+          ignoreStrings: false,
+          ignoreTemplateLiterals: false,
+        },
+      ],
+      'multiline-comment-style': ['error', 'starred-block'],
+      'new-cap': [
+        'error',
+        { newIsCap: true, capIsNew: true, properties: true },
+      ],
+      'new-parens': ['error', 'always'],
+      'newline-per-chained-call': ['error', { ignoreChainWithDepth: 2 }],
+      'no-array-constructor': 'error',
+      'no-bitwise': 'error',
+      'no-continue': 'error',
+      'no-inline-comments': 'error',
+      'no-mixed-spaces-and-tabs': 'error',
+      'no-multi-assign': 'error',
+      'no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0, maxBOF: 0 }],
+      'no-negated-condition': 'error',
+      'no-nested-ternary': 'error',
+      'no-new-object': 'error',
+      'no-plusplus': ['error', { allowForLoopAfterthoughts: false }],
+      'no-tabs': 'error',
+      'no-trailing-spaces': [
+        'error',
+        { skipBlankLines: false, ignoreComments: false },
+      ],
+      'no-unneeded-ternary': ['error', { defaultAssignment: false }],
+      'no-whitespace-before-property': 'error',
+      'nonblock-statement-body-position': ['error', 'beside'],
+      'object-curly-newline': [
+        'error',
+        {
+          ObjectExpression: { consistent: true },
+          ObjectPattern: { consistent: true },
+          ImportDeclaration: { consistent: true },
+          ExportDeclaration: { consistent: true },
+        },
+      ],
+      'object-curly-spacing': ['error', 'always'],
+      'one-var': ['error', 'never'],
+      'one-var-declaration-per-line': ['error', 'always'],
+      'operator-assignment': ['error', 'always'],
+      'operator-linebreak': ['error', 'before'],
+      'padded-blocks': ['error', 'never'],
+      'prefer-exponentiation-operator': 'error',
+      'prefer-object-spread': 'error',
+      'quote-props': ['error', 'as-needed'],
+      quotes: [
+        'error',
+        'single',
+        { avoidEscape: false, allowTemplateLiterals: false },
+      ],
+      semi: ['error', 'always'],
+      'semi-spacing': ['error', { before: false, after: true }],
+      'semi-style': ['error', 'last'],
+      'space-before-blocks': ['error', 'always'],
+      'space-before-function-paren': [
+        'error',
+        { anonymous: 'always', named: 'never', asyncArrow: 'always' },
+      ],
+      'space-in-parens': ['error', 'never'],
+      'space-infix-ops': 'error',
+      'space-unary-ops': ['error', { words: true, nonwords: false }],
+      'spaced-comment': ['error', 'always'],
+      'switch-colon-spacing': ['error', { after: true, before: false }],
+      'template-tag-spacing': ['error', 'never'],
+      'unicode-bom': ['error', 'never'],
+      'wrap-regex': 'error',
     },
   }
 );

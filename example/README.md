@@ -15,6 +15,7 @@ This example demonstrates type-safe usage of the node-mysql-cron library with co
 ## Setup
 
 1. Build the main project first:
+
    ```bash
    cd ..
    npm run build
@@ -22,15 +23,17 @@ This example demonstrates type-safe usage of the node-mysql-cron library with co
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Set up your database (MySQL):
+
    ```bash
    # Create database
    mysql -u root -e 'CREATE DATABASE IF NOT EXISTS nmc_test;'
-   
+
    # Run schema migration
    mysql -u root nmc_test < ../schema.sql
    ```
@@ -46,16 +49,19 @@ This example demonstrates type-safe usage of the node-mysql-cron library with co
 ## Running the Example
 
 ### Quick Demo
+
 ```bash
 npm run demo
 ```
 
 ### Full Example
+
 ```bash
 npm start
 ```
 
 ### Development Mode (with watch and auto-restart)
+
 ```bash
 npm run dev
 ```
@@ -69,7 +75,7 @@ All commands run TypeScript directly without any build step using tsx.
 The example defines specific result types for different job categories that extend `JSONValue`:
 
 - `EmailJobResult`: For email sending jobs
-- `DataSyncResult`: For data synchronization jobs  
+- `DataSyncResult`: For data synchronization jobs
 - `ReportGenerationResult`: For report generation jobs
 
 ### Worker Functions
@@ -83,6 +89,7 @@ Three example worker functions demonstrate different patterns:
 ### Error Handling
 
 Custom `JobError` class provides:
+
 - Job-specific error context
 - Retryable vs non-retryable error classification
 - Proper error chaining
@@ -90,6 +97,7 @@ Custom `JobError` class provides:
 ### Configuration
 
 Type-safe configuration includes:
+
 - Database connection parameters
 - Cron system settings
 - Error logging configuration
@@ -98,6 +106,7 @@ Type-safe configuration includes:
 ### Monitoring
 
 Real-time monitoring features:
+
 - Job history tracking
 - Performance metrics
 - Error reporting
@@ -115,12 +124,12 @@ Real-time monitoring features:
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DB_HOST` | `localhost` | MySQL host |
-| `DB_USER` | `root` | MySQL username |
-| `DB_PASSWORD` | `` | MySQL password |
-| `DB_NAME` | `nmc_test` | Database name |
+| Variable      | Default     | Description    |
+| ------------- | ----------- | -------------- |
+| `DB_HOST`     | `localhost` | MySQL host     |
+| `DB_USER`     | `root`      | MySQL username |
+| `DB_PASSWORD` | ``          | MySQL password |
+| `DB_NAME`     | `nmc_test`  | Database name  |
 
 ## Job Types Included
 
@@ -137,6 +146,7 @@ Real-time monitoring features:
 ## No Build Step Required
 
 This example uses tsx to run TypeScript directly without any compilation step:
+
 - No `tsconfig.json` needed
 - No build directory
 - Instant execution with full TypeScript support
@@ -145,6 +155,7 @@ This example uses tsx to run TypeScript directly without any compilation step:
 ## Type Safety Benefits
 
 This example demonstrates how TypeScript provides:
+
 - Compile-time error detection
 - IntelliSense support
 - Refactoring safety

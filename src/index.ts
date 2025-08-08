@@ -1,6 +1,7 @@
-import os from 'node:os';
+import { hostname, networkInterfaces } from 'node:os';
 import { setTimeout } from 'node:timers/promises';
 
+import type { NetworkInterfaceInfo } from 'node:os';
 import type { MysqlError, OkPacket, Pool } from 'mysql';
 
 const MAX_JOB_HISTORY = 100;
@@ -21,7 +22,7 @@ export interface Config {
   pollInterval: number;
   workerId: string;
   parallelLimit: number;
-  errorLog?: (...args: unknown[]) => void;
+  errorLog?: (...args: readonly unknown[]) => void;
 }
 export interface Job {
   job_name: string;
@@ -32,14 +33,14 @@ export interface Job {
   last_result: string;
   status: string;
 }
-export type JobHistory = {
+export interface JobHistory {
   job_name: string;
   start_time: number;
   end_time?: number;
   err?: unknown;
   result_status?: unknown;
   result?: unknown;
-};
+}
 export type JSONValue =
   | string
   | number
@@ -47,7 +48,7 @@ export type JSONValue =
   | null
   | JSONValue[]
   | { [key: string]: JSONValue };
-export type WorkerFunction = (job: Job) => Promise<JSONValue>;
+export type WorkerFunction = (job: readonly Job) => Promise<JSONValue>;
 
 type MysqlValue = string | number | bigint | Date | null | undefined;
 type Row = Record<string, MysqlValue>;
@@ -63,11 +64,11 @@ const g_config: Config = {
   workerId: _getDefaultWorkerId(),
   parallelLimit: 2,
 };
-const g_workerMap: Map<string, WorkerFunction> = new Map();
+const g_workerMap = new Map<string, WorkerFunction>();
 
 let errorLog: (...args: unknown[]) => void = _defaultErrorLog;
 let g_isStopped = true;
-let g_lastPollStart: number = 0;
+let g_lastPollStart = 0;
 const g_jobHistoryList: JobHistory[] = [];
 
 export function config(args: Partial<Config>): void {
@@ -118,7 +119,7 @@ async function _poll(): Promise<boolean> {
   const job_list = await _findJobs();
 
   if (job_list.length > 0) {
-    const promises = job_list.map((job) => _runJob(job));
+    const promises = job_list.map(async (job) => _runJob(job));
     await Promise.all(promises);
   }
   return job_list.length > 0;
@@ -187,9 +188,13 @@ async function _runJob(job: Job): Promise<void> {
 
     try {
       const worker_function = g_workerMap.get(job_name);
-      const result = await worker_function!(job);
-      last_result = _jsonStringify(result);
-      next_status = 'WAITING';
+      if (worker_function) {
+        const result = await worker_function(job);
+        last_result = _jsonStringify(result);
+        next_status = 'WAITING';
+      } else {
+        throw new Error('no_worker');
+      }
     } catch (err) {
       errorLog('NMC._runJob:', job_name, 'work error:', err);
       last_result = _errorStringify(err);
@@ -236,10 +241,11 @@ async function _endJob(params: {
   const { job, next_status, last_result } = params;
   const { job_name, frequency_secs, interval_offset_secs } = job;
 
-  const updates: Record<string, MysqlValue> = {
-    status: next_status,
-    last_result,
-  };
+  const updates: {
+    status: string;
+    last_result: string;
+    last_interval_time?: Date;
+  } = { status: next_status, last_result };
 
   let success_sql = '';
   if (next_status === 'WAITING') {
@@ -264,9 +270,9 @@ WHERE job_name = ?
   }
 }
 function _getDefaultWorkerId(): string {
-  const host = os.hostname();
-  const addresses: os.NetworkInterfaceInfo[] = [];
-  for (const interfaceList of Object.values(os.networkInterfaces())) {
+  const host = hostname();
+  const addresses: NetworkInterfaceInfo[] = [];
+  for (const interfaceList of Object.values(networkInterfaces())) {
     if (interfaceList) {
       for (const addr of interfaceList) {
         addresses.push(addr);
@@ -287,6 +293,7 @@ function _isLocalAddress(address: string): boolean {
   return address?.startsWith?.('fe80') || address?.startsWith?.('169.254');
 }
 function _defaultErrorLog(...args: unknown[]): void {
+  // eslint-disable-next-line no-console
   console.error(...args);
 }
 function _errorStringify(err: unknown): string {

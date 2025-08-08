@@ -1,20 +1,30 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "allowJs": true,
+    "target": "es2022",
+    "lib": ["es2022"],
+    "allowJs": false,
+    "checkJs": false,
     "module": "commonjs",
-    "skipLibCheck": true,
+    "skipLibCheck": false,
+    "skipDefaultLibCheck": false,
     "declaration": true,
+    "declarationMap": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": false,
     "sourceMap": true,
+    "inlineSourceMap": false,
+    "inlineSources": false,
     "baseUrl": ".",
     "outDir": "dist",
+    "rootDir": "src",
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "paths": { "*": ["node_modules/*"] },
     "jsx": "react-jsx",
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
 
-    // Strict Type Checking (but practical)
+    // Strict Type Checking - MAXIMUM STRICTNESS
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -24,17 +34,88 @@
     "noImplicitThis": true,
     "useUnknownInCatchVariables": true,
     "alwaysStrict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
 
-    // Additional Checks (practical ones)
+    // Additional Checks - MAXIMUM STRICTNESS
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
 
-    // Advanced
+    // Advanced - MAXIMUM STRICTNESS
     "forceConsistentCasingInFileNames": true,
     "allowUnreachableCode": false,
-    "allowUnusedLabels": false
+    "allowUnusedLabels": false,
+    "noImplicitUseStrict": false,
+    "suppressExcessPropertyErrors": false,
+    "suppressImplicitAnyIndexErrors": false,
+    "disableSizeLimit": false,
+    "noStrictGenericChecks": false,
+    "keyofStringsOnly": false,
+    "preserveConstEnums": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+
+    // Emit - STRICT SETTINGS
+    "noEmit": false,
+    "noEmitOnError": true,
+    "preserveWatchOutput": false,
+    "pretty": true,
+    "removeComments": false,
+    "downlevelIteration": false,
+    "importHelpers": false,
+    "preserveValueImports": false,
+
+    // Interop Constraints - STRICT
+    "allowUmdGlobalAccess": false,
+
+    // Language and Environment - STRICT
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+    "useDefineForClassFields": true,
+
+    // Compiler Diagnostics - MAXIMUM VERBOSITY
+    "diagnostics": false,
+    "explainFiles": false,
+    "extendedDiagnostics": false,
+    "listEmittedFiles": false,
+    "listFiles": false,
+    "traceResolution": false,
+
+    // Projects - STRICT
+    "composite": false,
+    "disableReferencedProjectLoad": false,
+    "disableSolutionSearching": false,
+    "disableSourceOfProjectReferenceRedirect": false,
+
+    // Output Formatting - STRICT
+    "noErrorTruncation": true,
+    "preserveWatchOutput": false,
+    "pretty": true,
+
+    // Watch and Build Modes - STRICT
+    "assumeChangesOnlyAffectDirectDependencies": false,
+
+    // Type Acquisition - DISABLED FOR STRICTNESS
+    "typeRoots": [],
+    "types": []
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "test/**/*",
+    "example/**/*",
+    "**/*.js",
+    "**/*.mjs",
+    "**/*.cjs"
+  ],
+  "compileOnSave": false,
+  "ts-node": { "esm": false, "experimentalSpecifierResolution": "node" }
 }

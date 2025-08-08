@@ -11,10 +11,10 @@ import Cron, { type Job, type WorkerFunction } from 'node-mysql-cron';
 // Simple worker that returns a basic result
 const simpleWorker: WorkerFunction = async (job: Job) => {
   console.log(`Processing job: ${job.job_name} (run #${job.run_count})`);
-  
+
   // Simulate some work
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   return {
     success: true,
     message: `Job ${job.job_name} completed successfully`,
@@ -26,12 +26,12 @@ const simpleWorker: WorkerFunction = async (job: Job) => {
 // Another worker that demonstrates error handling
 const errorProneWorker: WorkerFunction = async (job: Job) => {
   console.log(`Processing error-prone job: ${job.job_name}`);
-  
+
   // 30% chance of failure for demonstration
   if (Math.random() < 0.3) {
     throw new Error(`Simulated failure in ${job.job_name}`);
   }
-  
+
   return {
     success: true,
     message: 'Completed without errors',
@@ -41,7 +41,7 @@ const errorProneWorker: WorkerFunction = async (job: Job) => {
 
 async function runDemo(): Promise<void> {
   console.log('Starting TypeScript demo...');
-  
+
   // Create database pool
   const pool = mysql.createPool({
     host: 'localhost',
@@ -71,7 +71,7 @@ async function runDemo(): Promise<void> {
   setTimeout(() => {
     console.log('Demo completed. Stopping cron system...');
     Cron.stop();
-    
+
     // Show job history
     const history = Cron.getJobHistoryList();
     console.log('\nJob History:');
@@ -86,7 +86,7 @@ async function runDemo(): Promise<void> {
         console.log(`  Error: ${job.err}`);
       }
     }
-    
+
     pool.end();
     process.exit(0);
   }, 60000);
