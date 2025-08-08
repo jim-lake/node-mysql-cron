@@ -15,7 +15,7 @@ export interface Config {
     pollInterval: number;
     workerId: string;
     parallelLimit: number;
-    errorLog?: (...args: unknown[]) => void;
+    errorLog?: (...args: readonly unknown[]) => void;
 }
 export interface Job {
     job_name: string;
@@ -26,14 +26,14 @@ export interface Job {
     last_result: string;
     status: string;
 }
-export type JobHistory = {
+export interface JobHistory {
     job_name: string;
     start_time: number;
     end_time?: number;
     err?: unknown;
     result_status?: unknown;
     result?: unknown;
-};
+}
 export type JSONValue = string | number | boolean | null | JSONValue[] | {
     [key: string]: JSONValue;
 };

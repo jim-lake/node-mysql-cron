@@ -407,7 +407,11 @@ export default tseslint.config(
       'function-paren-newline': ['error', 'consistent'],
       'id-length': [
         'error',
-        { min: 2, max: 30, exceptions: ['i', 'j', 'k', 'x', 'y', 'z', '_', 'e'] },
+        {
+          min: 2,
+          max: 30,
+          exceptions: ['i', 'j', 'k', 'x', 'y', 'z', '_', 'e'],
+        },
       ],
       indent: [
         'error',

@@ -1,7 +1,4 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.config = config;
 exports.isStopped = isStopped;
@@ -10,7 +7,7 @@ exports.getJobHistoryList = getJobHistoryList;
 exports.setWorker = setWorker;
 exports.start = start;
 exports.stop = stop;
-const node_os_1 = __importDefault(require("node:os"));
+const node_os_1 = require("node:os");
 const promises_1 = require("node:timers/promises");
 const MAX_JOB_HISTORY = 100;
 exports.default = {
@@ -78,7 +75,7 @@ async function _poll() {
     await _unstallJobs();
     const job_list = await _findJobs();
     if (job_list.length > 0) {
-        const promises = job_list.map((job) => _runJob(job));
+        const promises = job_list.map(async (job) => _runJob(job));
         await Promise.all(promises);
     }
     return job_list.length > 0;
@@ -143,9 +140,14 @@ async function _runJob(job) {
         await _startJob(job);
         try {
             const worker_function = g_workerMap.get(job_name);
-            const result = await worker_function(job);
-            last_result = _jsonStringify(result);
-            next_status = 'WAITING';
+            if (worker_function) {
+                const result = await worker_function(job);
+                last_result = _jsonStringify(result);
+                next_status = 'WAITING';
+            }
+            else {
+                throw new Error('no_worker');
+            }
         }
         catch (err) {
             errorLog('NMC._runJob:', job_name, 'work error:', err);
@@ -190,10 +192,7 @@ WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
 async function _endJob(params) {
     const { job, next_status, last_result } = params;
     const { job_name, frequency_secs, interval_offset_secs } = job;
-    const updates = {
-        status: next_status,
-        last_result,
-    };
+    const updates = { status: next_status, last_result };
     let success_sql = '';
     if (next_status === 'WAITING') {
         success_sql = ', last_success_time = NOW()';
@@ -216,9 +215,9 @@ WHERE job_name = ?
     }
 }
 function _getDefaultWorkerId() {
-    const host = node_os_1.default.hostname();
+    const host = (0, node_os_1.hostname)();
     const addresses = [];
-    for (const interfaceList of Object.values(node_os_1.default.networkInterfaces())) {
+    for (const interfaceList of Object.values((0, node_os_1.networkInterfaces)())) {
         if (interfaceList) {
             for (const addr of interfaceList) {
                 addresses.push(addr);
@@ -237,6 +236,7 @@ function _isLocalAddress(address) {
     return address?.startsWith?.('fe80') || address?.startsWith?.('169.254');
 }
 function _defaultErrorLog(...args) {
+    // eslint-disable-next-line no-console
     console.error(...args);
 }
 function _errorStringify(err) {

@@ -48,7 +48,7 @@ export type JSONValue =
   | null
   | JSONValue[]
   | { [key: string]: JSONValue };
-export type WorkerFunction = (job: readonly Job) => Promise<JSONValue>;
+export type WorkerFunction = (job: Job) => Promise<JSONValue>;
 
 type MysqlValue = string | number | bigint | Date | null | undefined;
 type Row = Record<string, MysqlValue>;

@@ -8,7 +8,7 @@
     "skipLibCheck": false,
     "skipDefaultLibCheck": false,
     "declaration": true,
-    "declarationMap": true,
+    "declarationMap": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": false,
     "sourceMap": true,
@@ -21,8 +21,7 @@
     "resolveJsonModule": true,
     "paths": { "*": ["node_modules/*"] },
     "jsx": "react-jsx",
-    "incremental": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "incremental": false,
 
     // Strict Type Checking - MAXIMUM STRICTNESS
     "strict": true,
