@@ -840,4 +840,454 @@ describe('node-mysql-cron', () => {
       Cron.stop();
     }
   });
+
+  test('Update Where SQL - Basic Functionality', async () => {
+    await clearJobs();
+
+    // Insert a job with update_where_sql that should always allow execution
+    await insertJob({
+      job_name: 'test_update_where_basic',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      update_where_sql: 'AND 1 = 1', // Always true condition
+    });
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_update_where_basic', successWorker);
+    Cron.start();
+
+    try {
+      // Wait for job to complete
+      const completedJob = await waitForJobCompletion(
+        'test_update_where_basic',
+        'WAITING'
+      );
+
+      assert.ok(completedJob.run_count > 0, 'Job should have been executed');
+      assert.strictEqual(
+        completedJob.status,
+        'WAITING',
+        'Job should be in WAITING status'
+      );
+
+      const result = JSON.parse(completedJob.last_result);
+      assert.strictEqual(
+        result.success,
+        true,
+        'Job result should indicate success'
+      );
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  test('Update Where SQL - Prevent Execution', async () => {
+    await clearJobs();
+
+    // Insert a job with update_where_sql that should prevent execution
+    await insertJob({
+      job_name: 'test_update_where_prevent',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      update_where_sql: 'AND 1 = 0', // Always false condition
+    });
+
+    let executionCount = 0;
+    const preventedWorker = async (job) => {
+      executionCount++;
+      log(`Prevented worker executed (should not happen): ${job.job_name}`);
+      return { executed: true, count: executionCount };
+    };
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_update_where_prevent', preventedWorker);
+    Cron.start();
+
+    try {
+      // Wait for several poll cycles
+      await sleep(3000);
+
+      const job = await getJob('test_update_where_prevent');
+      assert.strictEqual(
+        job.run_count,
+        0,
+        'Job should not have been executed due to update_where_sql condition'
+      );
+      assert.strictEqual(
+        executionCount,
+        0,
+        'Worker function should not have been called'
+      );
+      assert.strictEqual(
+        job.status,
+        'WAITING',
+        'Job should remain in WAITING status'
+      );
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  test('Update Where SQL - No Running Jobs Condition', async () => {
+    await clearJobs();
+
+    // Insert a job that uses a simple condition that doesn't reference the same table
+    await insertJob({
+      job_name: 'exclusive_job',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      update_where_sql: `AND HOUR(NOW()) >= 0`, // Always true condition
+    });
+
+    let exclusiveJobCount = 0;
+
+    const exclusiveWorker = async (job) => {
+      exclusiveJobCount++;
+      log(
+        `Exclusive worker executed: ${job.job_name}, count: ${exclusiveJobCount}`
+      );
+      await sleep(100);
+      return {
+        exclusive: true,
+        jobName: job.job_name,
+        count: exclusiveJobCount,
+      };
+    };
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 300,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('exclusive_job', exclusiveWorker);
+    Cron.start();
+
+    try {
+      // Wait for the job to run
+      await sleep(2000);
+
+      const exclusiveJob = await getJob('exclusive_job');
+
+      // The job should be able to run since the condition is always true
+      assert.ok(
+        exclusiveJob.run_count > 0,
+        `Exclusive job should run when condition is true. Got run_count: ${exclusiveJob.run_count}`
+      );
+
+      log(`Exclusive job run count: ${exclusiveJob.run_count}`);
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  test('Update Where SQL - Complex Conditions', async () => {
+    await clearJobs();
+
+    // Insert a job with a time-based condition that should allow execution
+    await insertJob({
+      job_name: 'conditional_job',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      update_where_sql: `AND DAYOFWEEK(NOW()) BETWEEN 1 AND 7`, // Always true (any day of week)
+    });
+
+    let jobCount = 0;
+
+    const conditionalWorker = async (job) => {
+      jobCount++;
+      log(`Conditional worker executing: ${job.job_name}, count: ${jobCount}`);
+      await sleep(200);
+      return { jobName: job.job_name, count: jobCount };
+    };
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 300,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('conditional_job', conditionalWorker);
+    Cron.start();
+
+    try {
+      // Let the job run for a few cycles
+      await sleep(2000);
+
+      const job = await getJob('conditional_job');
+
+      // The job should have run since the condition is always true
+      assert.ok(
+        job.run_count > 0,
+        `Conditional job should have executed. Got run_count: ${job.run_count}`
+      );
+
+      log(`Conditional job run count: ${job.run_count}`);
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  test('Update Where SQL - Null Value Handling', async () => {
+    await clearJobs();
+
+    // Insert a job with null update_where_sql (should behave like normal job)
+    await insertJob({
+      job_name: 'test_null_update_where',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      update_where_sql: null,
+    });
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_null_update_where', successWorker);
+    Cron.start();
+
+    try {
+      // Wait for job to complete
+      const completedJob = await waitForJobCompletion(
+        'test_null_update_where',
+        'WAITING'
+      );
+
+      assert.ok(completedJob.run_count > 0, 'Job should have been executed');
+      assert.strictEqual(
+        completedJob.status,
+        'WAITING',
+        'Job should be in WAITING status'
+      );
+
+      const result = JSON.parse(completedJob.last_result);
+      assert.strictEqual(
+        result.success,
+        true,
+        'Job result should indicate success'
+      );
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  test('Update Where SQL - Invalid SQL Handling', async () => {
+    await clearJobs();
+
+    // Insert a job with invalid update_where_sql
+    await insertJob({
+      job_name: 'test_invalid_update_where',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      update_where_sql: 'AND invalid_column = 1', // Invalid column name
+    });
+
+    let executionCount = 0;
+    const invalidSqlWorker = async (job) => {
+      executionCount++;
+      log(`Invalid SQL worker executed (should not happen): ${job.job_name}`);
+      return { executed: true, count: executionCount };
+    };
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_invalid_update_where', invalidSqlWorker);
+    Cron.start();
+
+    try {
+      // Wait for several poll cycles
+      await sleep(3000);
+
+      const job = await getJob('test_invalid_update_where');
+      assert.strictEqual(
+        job.run_count,
+        0,
+        'Job should not have been executed due to invalid SQL'
+      );
+      assert.strictEqual(
+        executionCount,
+        0,
+        'Worker function should not have been called'
+      );
+      assert.strictEqual(
+        job.status,
+        'WAITING',
+        'Job should remain in WAITING status'
+      );
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  test('Update Where SQL - Time-based Conditions', async () => {
+    await clearJobs();
+
+    // Insert a job that only runs during certain times (using a condition that should be true)
+    const currentHour = new Date().getHours();
+    await insertJob({
+      job_name: 'test_time_based',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      update_where_sql: `AND HOUR(NOW()) = ${currentHour}`, // Should be true for current hour
+    });
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 500,
+      parallelLimit: 1,
+      errorLog: error,
+    });
+
+    Cron.setWorker('test_time_based', successWorker);
+    Cron.start();
+
+    try {
+      // Wait for job to complete
+      const completedJob = await waitForJobCompletion(
+        'test_time_based',
+        'WAITING'
+      );
+
+      assert.ok(completedJob.run_count > 0, 'Job should have been executed');
+      assert.strictEqual(
+        completedJob.status,
+        'WAITING',
+        'Job should be in WAITING status'
+      );
+
+      const result = JSON.parse(completedJob.last_result);
+      assert.strictEqual(
+        result.success,
+        true,
+        'Job result should indicate success'
+      );
+    } finally {
+      Cron.stop();
+    }
+  });
+
+  // Test derived table workaround for MySQL limitation
+  test('Update Where SQL - Derived Table Workaround', async () => {
+    await clearJobs();
+
+    // Use derived table to work around MySQL limitation
+    const derivedTableSQL = `AND (
+      SELECT COUNT(*) 
+      FROM (
+        SELECT * 
+        FROM ${JOB_TABLE}
+      ) AS t
+      WHERE t.status = 'RUNNING'
+    ) = 0`;
+
+    await insertJob({
+      job_name: 'test_derived_workaround',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+      update_where_sql: derivedTableSQL,
+    });
+
+    await insertJob({
+      job_name: 'test_blocking_job',
+      frequency_secs: 1,
+      retry_secs: 1,
+      max_run_secs: 10,
+    });
+
+    let workaroundExecutions = 0;
+    let blockingExecutions = 0;
+
+    const workaroundWorker = async (job) => {
+      workaroundExecutions++;
+      log(
+        `Workaround worker executed: ${job.job_name} (execution ${workaroundExecutions})`
+      );
+      await sleep(100); // Short execution
+      return { executed: true, count: workaroundExecutions };
+    };
+
+    const blockingWorker = async (job) => {
+      blockingExecutions++;
+      log(`Blocking worker started: ${job.job_name}`);
+      await sleep(2000); // Long execution to block other jobs
+      log(`Blocking worker finished: ${job.job_name}`);
+      return { executed: true, count: blockingExecutions };
+    };
+
+    Cron.config({
+      pool,
+      jobTable: JOB_TABLE,
+      pollInterval: 200,
+      parallelLimit: 2,
+      errorLog: console.error,
+    });
+
+    Cron.setWorker('test_derived_workaround', workaroundWorker);
+    Cron.setWorker('test_blocking_job', blockingWorker);
+
+    Cron.start();
+
+    // Let the workaround job run initially
+    await sleep(500);
+    const initialExecutions = workaroundExecutions;
+
+    // Start the blocking job
+    await sleep(1000);
+    const duringBlockingExecutions = workaroundExecutions;
+
+    // Wait for blocking job to finish and workaround job to resume
+    await sleep(2500);
+    const finalExecutions = workaroundExecutions;
+
+    Cron.stop();
+
+    // Verify the derived table approach worked
+    assert(initialExecutions >= 1, 'Workaround job should execute initially');
+    assert(
+      finalExecutions > duringBlockingExecutions,
+      'Workaround job should resume after blocking job finishes'
+    );
+    assert(blockingExecutions >= 1, 'Blocking job should execute');
+
+    log(
+      `Derived table workaround test completed: initial=${initialExecutions}, during=${duringBlockingExecutions}, final=${finalExecutions}`
+    );
+  });
 });

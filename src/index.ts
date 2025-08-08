@@ -33,7 +33,7 @@ export interface Job {
   status: string;
 }
 interface JobRow extends Job {
-  update_where_sql: string|null;
+  update_where_sql: string | null;
 }
 export interface JobHistory {
   job_name: string;
