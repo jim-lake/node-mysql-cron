@@ -180,14 +180,6 @@ export default tseslint.config(
 
       '@typescript-eslint/naming-convention': [
         'error',
-        // Constants can be UPPER_CASE or camelCase (like MAX_JOB_HISTORY)
-        {
-          selector: 'variable',
-          modifiers: ['const'],
-          format: ['UPPER_CASE', 'camelCase'],
-          leadingUnderscore: 'allow',
-          trailingUnderscore: 'forbid',
-        },
         // Global variables with g_ prefix (like g_config, g_workerMap)
         {
           selector: 'variable',
@@ -195,6 +187,14 @@ export default tseslint.config(
           format: ['camelCase'],
           prefix: ['g_'],
           leadingUnderscore: 'forbid',
+          trailingUnderscore: 'forbid',
+        },
+        // Constants can be UPPER_CASE, camelCase, or snake_case (like MAX_JOB_HISTORY, errorLog, job_list)
+        {
+          selector: 'variable',
+          modifiers: ['const'],
+          format: ['UPPER_CASE', 'camelCase', 'snake_case'],
+          leadingUnderscore: 'allow',
           trailingUnderscore: 'forbid',
         },
         // Private functions with _ prefix (like _run, _poll, _findJobs)
