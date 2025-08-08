@@ -1,5 +1,19 @@
 {
+  "name": "node-mysql-cron-example",
+  "version": "1.0.0",
+  "description": "TypeScript example for node-mysql-cron",
+  "scripts": {
+    "start": "tsx example.ts",
+    "demo": "tsx demo.ts",
+    "dev": "tsx --watch example.ts"
+  },
   "dependencies": {
-    "mysql": "^2.18.1"
+    "mysql": "^2.18.1",
+    "node-mysql-cron": "file:.."
+  },
+  "devDependencies": {
+    "@types/mysql": "^2.15.27",
+    "@types/node": "^24.2.0",
+    "tsx": "^4.19.2"
   }
 }
