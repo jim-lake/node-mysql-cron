@@ -1,6 +1,10 @@
 import async from 'async';
 import os from 'node:os';
 
+import type { MysqlError, OkPacket } from 'mysql';
+
+const MAX_JOB_HISTORY = 100;
+
 export default {
   config,
   isStopped,
@@ -11,9 +15,7 @@ export default {
   getJobHistoryList,
 };
 
-const MAX_JOB_HISTORY = 100;
-
-interface Config {
+export interface Config {
   pool: any | null;
   jobTable: string;
   pollInterval: number;
@@ -21,7 +23,7 @@ interface Config {
   parallelLimit: number;
   errorLog?: (...args: any[]) => void;
 }
-interface Job {
+export interface Job {
   job_name: string;
   run_count: number;
   frequency_secs: number;
@@ -30,7 +32,7 @@ interface Job {
   last_result: string;
   status: string;
 }
-type JobHistory = {
+export type JobHistory = {
   job_name: string;
   start_time: number;
   end_time?: number;
@@ -38,14 +40,21 @@ type JobHistory = {
   result_status?: any;
   result?: any;
 };
-type JSONValue =
+export type JSONValue =
   | string
   | number
   | boolean
   | null
   | JSONValue[]
   | { [key: string]: JSONValue };
-type WorkerFunction = (job: Job) => Promise<JSONValue>;
+export type WorkerFunction = (job: Job) => Promise<JSONValue>;
+
+type MysqlValue = string | number | bigint | Date | null | undefined;
+type Row = Record<string, MysqlValue>;
+type QueryValues = (Record<string, MysqlValue> | MysqlValue)[];
+type QueryResult<T> =
+  | { err: null; results: T }
+  | { err: MysqlError; results?: T };
 
 const g_config: Config = {
   pool: null,
@@ -71,10 +80,10 @@ export function config(args: Partial<Config>): void {
 export function isStopped(): boolean {
   return g_isStopped;
 }
-export function getLastPollStart() {
+export function getLastPollStart(): number {
   return g_lastPollStart;
 }
-export function getJobHistoryList() {
+export function getJobHistoryList(): JobHistory[] {
   return g_jobHistoryList;
 }
 export function setWorker(
@@ -187,10 +196,7 @@ ORDER BY last_start_time ASC
 }
 async function _runJob(job: Job, done: (err?: any) => void): Promise<void> {
   const { job_name } = job;
-  const job_history: JobHistory = {
-    job_name,
-    start_time: Date.now(),
-  };
+  const job_history: JobHistory = { job_name, start_time: Date.now() };
   g_jobHistoryList.unshift(job_history);
   g_jobHistoryList.splice(MAX_JOB_HISTORY);
 
@@ -257,10 +263,7 @@ function _endJob(
   const { job, next_status, last_result } = params;
   const { job_name, frequency_secs, interval_offset_secs } = job;
 
-  const updates: any = {
-    status: next_status,
-    last_result,
-  };
+  const updates: any = { status: next_status, last_result };
 
   let success_sql = '';
   if (next_status === 'WAITING') {
@@ -326,4 +329,18 @@ function _jsonStringify(obj: any): string {
     ret = String(obj);
   }
   return ret;
+}
+async function _query<T = Row[]>(
+  sql: string,
+  values: QueryValues
+): Promise<QueryResult<T>> {
+  return new Promise((resolve, reject) => {
+    if (g_config.pool) {
+      g_config.pool.query(sql, values, (err, results) => {
+        resolve({ err, results: results as T });
+      });
+    } else {
+      reject(new Error('no_pool'));
+    }
+  });
 }

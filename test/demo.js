@@ -34,10 +34,7 @@ async function fetchDataWorker(job) {
   return {
     jobName: job.job_name,
     timestamp: new Date().toISOString(),
-    data: {
-      records: Math.floor(Math.random() * 100),
-      status: 'success',
-    },
+    data: { records: Math.floor(Math.random() * 100), status: 'success' },
   };
 }
 
