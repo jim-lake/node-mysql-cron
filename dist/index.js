@@ -94,7 +94,7 @@ WHERE
         errorLog('NMC._unstallJobs: sql err:', err);
         throw err;
     }
-    else if (results && results.affectedRows > 0) {
+    else if (results.affectedRows > 0) {
         errorLog('NMC._unstallJobs: unstalled jobs:', results.affectedRows);
     }
 }
@@ -125,7 +125,7 @@ ORDER BY last_start_time ASC
         errorLog('NMC._findJob: sql err:', err);
         throw err;
     }
-    const job_list = (results || [])
+    const job_list = results
         .filter((job) => g_workerMap.has(job.job_name))
         .slice(0, g_config.parallelLimit);
     return job_list;
@@ -186,7 +186,7 @@ WHERE job_name = ? AND status != 'RUNNING' AND run_count = ?
         errorLog('NMC._startJob:', job_name, ' sql err:', err);
         throw err;
     }
-    else if (results && results.affectedRows === 0) {
+    else if (results.affectedRows === 0) {
         throw new Error('conflict');
     }
 }
@@ -234,7 +234,7 @@ function _getDefaultWorkerId() {
     return ret;
 }
 function _isLocalAddress(address) {
-    return address?.startsWith?.('fe80') || address?.startsWith?.('169.254');
+    return address.startsWith('fe80') || address.startsWith('169.254');
 }
 function _defaultErrorLog(...args) {
     // eslint-disable-next-line no-console
@@ -243,9 +243,11 @@ function _defaultErrorLog(...args) {
 function _errorStringify(err) {
     let ret = '';
     if (err instanceof Error) {
-        ret = `${err.stack} ${_jsonStringify({ ...err })}`;
+        const stack = err.stack ?? '';
+        const errorObj = _jsonStringify({ ...err });
+        ret = `${stack} ${errorObj}`;
     }
-    else if (typeof err === 'object') {
+    else if (typeof err === 'object' && err !== null) {
         ret = _jsonStringify(err);
     }
     else {
