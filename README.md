@@ -7,6 +7,7 @@ A MySQL-based periodic cron job system with async worker function support.
 - **Async Worker Functions**: Worker functions are now async and return `Promise<JSONValue>`
 - **Automatic Error Handling**: Errors are automatically caught and serialized
 - **Result Serialization**: Return values are automatically JSON serialized
+- **Conditional Job Execution**: Use SQL conditions to control when jobs can run
 - **Parallel Job Execution**: Configure how many jobs can run simultaneously
 - **Job History Tracking**: Built-in job execution history
 - **Stalled Job Detection**: Automatically handles jobs that exceed their max run time
@@ -144,6 +145,7 @@ CREATE TABLE `nmc_job` (
   `retry_secs` int NOT NULL DEFAULT '10',
   `max_run_secs` int NOT NULL DEFAULT '600',
   `interval_offset_secs` int NOT NULL DEFAULT '0',
+  `update_where_sql` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
   `status` enum('WAITING','RUNNING','ERROR') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'WAITING',
   `run_count` int NOT NULL DEFAULT '0',
   `last_interval_time` timestamp NULL DEFAULT NULL,
@@ -173,6 +175,92 @@ pool.query('INSERT INTO nmc_job SET ?', [job], (err, result) => {
   console.log('Job created');
 });
 ```
+
+### Conditional Job Execution
+
+The `update_where_sql` field allows you to specify additional SQL conditions that must be met before a job can start executing. This enables advanced job scheduling scenarios like preventing concurrent execution or time-based restrictions.
+
+#### Basic Usage
+
+```javascript
+const job = {
+  job_name: 'exclusive_job',
+  frequency_secs: 300, // Run every 5 minutes
+  update_where_sql: 'AND 1 = 1', // Always allow (example)
+};
+
+pool.query('INSERT INTO nmc_job SET ?', [job], (err, result) => {
+  if (err) throw err;
+  console.log('Conditional job created');
+});
+```
+
+#### Prevent Execution During Business Hours
+
+```javascript
+const job = {
+  job_name: 'maintenance_job',
+  frequency_secs: 3600, // Check every hour
+  update_where_sql: 'AND (HOUR(NOW()) < 9 OR HOUR(NOW()) > 17)', // Only run outside 9 AM - 5 PM
+};
+```
+
+#### Prevent Concurrent Job Execution
+
+To ensure only one instance of any job runs at a time, use a derived table approach:
+
+```javascript
+const job = {
+  job_name: 'exclusive_process',
+  frequency_secs: 600, // Check every 10 minutes
+  update_where_sql: `AND (
+    SELECT COUNT(*) 
+    FROM (
+      SELECT * 
+      FROM nmc_job
+    ) AS t
+    WHERE t.status = 'RUNNING'
+  ) = 0`, // Only run when no other jobs are running
+};
+```
+
+#### Time-Based Conditions
+
+```javascript
+const job = {
+  job_name: 'weekend_job',
+  frequency_secs: 3600,
+  update_where_sql: 'AND DAYOFWEEK(NOW()) IN (1, 7)', // Only run on weekends (Sunday=1, Saturday=7)
+};
+
+const nightJob = {
+  job_name: 'night_backup',
+  frequency_secs: 86400, // Daily
+  update_where_sql: 'AND HOUR(NOW()) BETWEEN 2 AND 4', // Only run between 2-4 AM
+};
+```
+
+#### Complex Conditions
+
+```javascript
+const job = {
+  job_name: 'complex_job',
+  frequency_secs: 1800, // Every 30 minutes
+  update_where_sql: `
+    AND DAYOFWEEK(NOW()) BETWEEN 2 AND 6  -- Monday to Friday
+    AND HOUR(NOW()) BETWEEN 9 AND 17      -- Business hours
+    AND run_count < 10                     -- Limit executions
+  `,
+};
+```
+
+#### Important Notes
+
+- The `update_where_sql` condition is added to the job selection query
+- If the condition evaluates to false, the job will not execute during that poll cycle
+- Use proper SQL syntax and be mindful of performance implications
+- The condition is evaluated each time the job scheduler polls for available jobs
+- For complex conditions involving the same table, use derived table syntax to avoid MySQL limitations
 
 ## API
 

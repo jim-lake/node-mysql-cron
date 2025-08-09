@@ -1217,38 +1217,61 @@ describe('node-mysql-cron', () => {
     ) = 0`;
 
     await insertJob({
-      job_name: 'test_derived_workaround',
-      frequency_secs: 1,
+      job_name: 'test_blocked_worker',
+      frequency_secs: 1, // Run every second
       retry_secs: 1,
       max_run_secs: 10,
       update_where_sql: derivedTableSQL,
     });
 
     await insertJob({
-      job_name: 'test_blocking_job',
-      frequency_secs: 1,
+      job_name: 'test_blocker_worker',
+      frequency_secs: 1, // Run every second
       retry_secs: 1,
       max_run_secs: 10,
     });
 
-    let workaroundExecutions = 0;
-    let blockingExecutions = 0;
+    let blockedWorkerRuns = 0;
+    let blockerWorkerRuns = 0;
+    let blockedRunningWhileBlocker = 0;
+    let blockerIsRunning = false;
+    let firstSeenBlockerRuns = 0;
+    let currentSeenBlockerRuns = 0;
 
-    const workaroundWorker = async (job) => {
-      workaroundExecutions++;
-      log(
-        `Workaround worker executed: ${job.job_name} (execution ${workaroundExecutions})`
-      );
-      await sleep(100); // Short execution
-      return { executed: true, count: workaroundExecutions };
+    const blockedWorker = async (job) => {
+      blockedWorkerRuns++;
+
+      // Save first seen blocker runs
+      if (blockedWorkerRuns === 1) {
+        firstSeenBlockerRuns = blockerWorkerRuns;
+      }
+
+      // Always update current seen blocker runs
+      currentSeenBlockerRuns = blockerWorkerRuns;
+
+      if (blockerIsRunning) {
+        blockedRunningWhileBlocker++;
+        log(`❌ BLOCKED worker ran while BLOCKER was running!`);
+      } else {
+        log(
+          `✅ Blocked worker executed (run ${blockedWorkerRuns}, blocker runs: ${blockerWorkerRuns})`
+        );
+      }
+
+      await sleep(100);
+      return { executed: true };
     };
 
-    const blockingWorker = async (job) => {
-      blockingExecutions++;
-      log(`Blocking worker started: ${job.job_name}`);
-      await sleep(2000); // Long execution to block other jobs
-      log(`Blocking worker finished: ${job.job_name}`);
-      return { executed: true, count: blockingExecutions };
+    const blockerWorker = async (job) => {
+      blockerWorkerRuns++;
+      blockerIsRunning = true;
+      log(`🚫 Blocker worker started (run ${blockerWorkerRuns})`);
+
+      await sleep(2500); // Block for 2.5 seconds
+
+      blockerIsRunning = false;
+      log(`🚫 Blocker worker finished (run ${blockerWorkerRuns})`);
+      return { executed: true };
     };
 
     Cron.config({
@@ -1259,35 +1282,36 @@ describe('node-mysql-cron', () => {
       errorLog: console.error,
     });
 
-    Cron.setWorker('test_derived_workaround', workaroundWorker);
-    Cron.setWorker('test_blocking_job', blockingWorker);
+    Cron.setWorker('test_blocked_worker', blockedWorker);
+    Cron.setWorker('test_blocker_worker', blockerWorker);
 
     Cron.start();
 
-    // Let the workaround job run initially
-    await sleep(500);
-    const initialExecutions = workaroundExecutions;
-
-    // Start the blocking job
-    await sleep(1000);
-    const duringBlockingExecutions = workaroundExecutions;
-
-    // Wait for blocking job to finish and workaround job to resume
-    await sleep(2500);
-    const finalExecutions = workaroundExecutions;
+    // Let the system run for at least 7 seconds
+    await sleep(7000);
 
     Cron.stop();
 
-    // Verify the derived table approach worked
-    assert(initialExecutions >= 1, 'Workaround job should execute initially');
+    // Verify the blocking worked
     assert(
-      finalExecutions > duringBlockingExecutions,
-      'Workaround job should resume after blocking job finishes'
+      blockedWorkerRuns >= 2,
+      `Blocked worker should run at least 2 times (got ${blockedWorkerRuns})`
     );
-    assert(blockingExecutions >= 1, 'Blocking job should execute');
+    assert(
+      blockerWorkerRuns >= 1,
+      `Blocker worker should run at least 1 time (got ${blockerWorkerRuns})`
+    );
+    assert(
+      blockedRunningWhileBlocker === 0,
+      `Blocked worker should never run while blocker is running (got ${blockedRunningWhileBlocker})`
+    );
+    assert(
+      currentSeenBlockerRuns > firstSeenBlockerRuns,
+      `Current blocker runs (${currentSeenBlockerRuns}) should be bigger than first seen (${firstSeenBlockerRuns})`
+    );
 
     log(
-      `Derived table workaround test completed: initial=${initialExecutions}, during=${duringBlockingExecutions}, final=${finalExecutions}`
+      `✅ Test completed: blocked=${blockedWorkerRuns}, blocker=${blockerWorkerRuns}, violations=${blockedRunningWhileBlocker}, first=${firstSeenBlockerRuns}, current=${currentSeenBlockerRuns}`
     );
   });
 });
